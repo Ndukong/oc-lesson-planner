@@ -1,0 +1,96 @@
+import { NavLink, Link } from "react-router-dom";
+import {
+  BookOpen,
+  CalendarRange,
+  FileDown,
+  GraduationCap,
+  Home,
+  Settings,
+  Share2,
+  TrendingUp
+} from "lucide-react";
+import { cn } from "@/utils/cn";
+import { useAppStore } from "@/stores/app-store";
+import { useSubjects } from "@/db/hooks";
+
+const NAV_ITEMS = [
+  { to: "/", label: "Dashboard", icon: Home, end: true },
+  { to: "/progression", label: "Progression", icon: CalendarRange },
+  { to: "/syllabus", label: "Syllabus", icon: BookOpen },
+  { to: "/progress", label: "Progress", icon: TrendingUp },
+  { to: "/export", label: "Export", icon: FileDown },
+  { to: "/sharing", label: "Sharing", icon: Share2 },
+  { to: "/settings", label: "Settings", icon: Settings }
+];
+
+export function Sidebar() {
+  const subjects = useSubjects();
+  const { subjectId, classLevel, setSubject, setClassLevel } = useAppStore();
+
+  return (
+    <aside className="hidden w-64 shrink-0 flex-col border-r border-slate-200 bg-white md:flex dark:border-slate-800 dark:bg-slate-900">
+      <Link to="/" className="flex items-center gap-3 border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-white">
+          <GraduationCap className="h-6 w-6" />
+        </span>
+        <div>
+          <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Lesson Planner</p>
+          <p className="text-xs text-slate-500">MINESEC · CBA</p>
+        </div>
+      </Link>
+
+      <nav className="flex-1 overflow-y-auto p-3">
+        <ul className="space-y-1">
+          {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
+            <li key={to}>
+              <NavLink
+                to={to}
+                end={end}
+                className={({ isActive }) =>
+                  cn(
+                    "flex min-h-[44px] items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300"
+                      : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                  )
+                }
+              >
+                <Icon className="h-5 w-5" />
+                {label}
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      </nav>
+
+      <div className="space-y-3 border-t border-slate-200 p-4 dark:border-slate-800">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-500">Subject</label>
+          <select
+            value={subjectId}
+            onChange={(e) => setSubject(e.target.value)}
+            className="h-10 w-full rounded-lg border border-slate-300 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+          >
+            {(subjects ?? []).map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-500">Class Level</label>
+          <select
+            value={classLevel}
+            onChange={(e) => setClassLevel(e.target.value as never)}
+            className="h-10 w-full rounded-lg border border-slate-300 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+          >
+            {(subjects ?? [])
+              .find((s) => s.id === subjectId)
+              ?.classLevels.map((cl) => (
+                <option key={cl} value={cl}>{cl}</option>
+              ))}
+          </select>
+        </div>
+      </div>
+    </aside>
+  );
+}
