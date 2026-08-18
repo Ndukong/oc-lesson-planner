@@ -3,9 +3,7 @@ export const CLASS_LEVELS = [
   "Form 2",
   "Form 3",
   "Form 4",
-  "Form 5",
-  "Lower Sixth",
-  "Upper Sixth"
+  "Form 5"
 ] as const;
 
 export type ClassLevel = (typeof CLASS_LEVELS)[number];
@@ -73,6 +71,8 @@ export interface Holiday {
   name: string;
   startWeek: number;
   endWeek: number;
+  startDate?: Date;
+  endDate?: Date;
 }
 
 export interface SequenceInfo {
@@ -262,8 +262,8 @@ export const DEFAULT_CALENDAR: SchoolCalendar = {
   startDate: new Date("2025-09-01T00:00:00"),
   endDate: new Date("2026-05-31T00:00:00"),
   holidays: [
-    { name: "Christmas Break", startWeek: 13, endWeek: 15 },
-    { name: "Easter Break", startWeek: 25, endWeek: 26 }
+    { name: "Christmas Break", startWeek: 13, endWeek: 14, startDate: new Date("2025-11-24T00:00:00"), endDate: new Date("2025-12-05T00:00:00") },
+    { name: "Easter Break", startWeek: 25, endWeek: 26, startDate: new Date("2026-02-16T00:00:00"), endDate: new Date("2026-02-27T00:00:00") }
   ],
   sequences: [
     { number: 1, startWeek: 1, endWeek: 6, evaluationWeek: 6 },

@@ -5,6 +5,44 @@ import type {
   WeekInfo
 } from "@/types";
 
+function startOfDay(d: Date): number {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+/** Week number (1-36) for a given calendar date, relative to the academic year start (Monday-based weeks). */
+export function weekNumberForDate(date: Date, calendar: SchoolCalendar): number {
+  const startMs = startOfDay(calendar.startDate);
+  const diffDays = Math.round((startOfDay(date) - startMs) / (1000 * 60 * 60 * 24));
+  const week = Math.floor(diffDays / 7) + 1;
+  return Math.max(1, Math.min(36, week));
+}
+
+/** Monday of the given academic week. */
+export function weekStartDate(week: number, calendar: SchoolCalendar): Date {
+  const start = new Date(startOfDay(calendar.startDate));
+  start.setDate(start.getDate() + (week - 1) * 7);
+  return start;
+}
+
+/** Friday of the given academic week. */
+export function weekEndDate(week: number, calendar: SchoolCalendar): Date {
+  const start = weekStartDate(week, calendar);
+  start.setDate(start.getDate() + 4);
+  return start;
+}
+
+/** Derive startWeek/endWeek for a holiday from its dates. */
+export function holidayWeeksFromDates(
+  startDate: Date,
+  endDate: Date,
+  calendar: SchoolCalendar
+): { startWeek: number; endWeek: number } {
+  return {
+    startWeek: weekNumberForDate(startDate, calendar),
+    endWeek: weekNumberForDate(endDate, calendar)
+  };
+}
+
 export function sequenceFromWeek(week: number): Sequence {
   if (week <= 6) return 1;
   if (week <= 12) return 2;
@@ -51,13 +89,11 @@ export function currentWeekNumber(
   calendar: SchoolCalendar
 ): number {
   const now = new Date();
-  const start = new Date(calendar.startDate);
-  const startOfStart = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-  const diffDays = Math.floor(
-    (now.getTime() - startOfStart.getTime()) / (1000 * 60 * 60 * 24)
-  );
-  const week = Math.floor(diffDays / 7) + 1;
-  return Math.max(1, Math.min(36, week));
+  // School weeks run Monday-Friday; anchor the week boundary on Monday.
+  const day = now.getDay(); // 0 = Sunday
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - ((day + 6) % 7));
+  return weekNumberForDate(monday, calendar);
 }
 
 export function daysUntilEvaluation(

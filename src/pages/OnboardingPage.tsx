@@ -24,7 +24,7 @@ export function OnboardingPage() {
         name: name.trim() || "Teacher",
         school: school.trim(),
         region: region.trim(),
-        subjects: ["physics"],
+        subjects: ["biology"],
         defaultClassLevels: ["Form 3"],
         onboarded: true
       });
@@ -80,15 +80,15 @@ export function OnboardingPage() {
               <form onSubmit={finish} className="space-y-3">
                 <div>
                   <Label>Your name</Label>
-                  <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Mr. Ekotto" autoFocus />
+                  <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Ndukong Emmanuel Ngeh" autoFocus />
                 </div>
                 <div>
                   <Label>School</Label>
-                  <Input value={school} onChange={(e) => setSchool(e.target.value)} placeholder="e.g., Government Bilingual High School" />
+                  <Input value={school} onChange={(e) => setSchool(e.target.value)} placeholder="e.g., Government High School Dumbu" />
                 </div>
                 <div>
                   <Label>Region</Label>
-                  <Input value={region} onChange={(e) => setRegion(e.target.value)} placeholder="e.g., South West" />
+                  <Input value={region} onChange={(e) => setRegion(e.target.value)} placeholder="e.g., North-West" />
                 </div>
                 <div className="flex gap-2 pt-2">
                   <Button type="button" variant="ghost" onClick={() => setStep(2)}>
@@ -110,12 +110,14 @@ export function OnboardingPage() {
                 Subjects
               </h2>
               <p className="text-center text-sm text-slate-600 dark:text-slate-300">
-                <strong>Physics</strong> is already loaded with the full national
-                syllabus (Form 1 to Upper Sixth). Import more subjects from
-                colleagues.
+                The following national syllabuses (Form 1 to Form 5) are already
+                loaded: <strong>Biology, Human Biology, Chemistry, Citizenship
+                Education, Computer Science, Economics, Geography, Geology,
+                History, Literature in English, Mathematics and Physics.</strong>{" "}
+                Import more subjects from colleagues.
               </p>
               <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200">
-                <BookOpen className="mr-1 inline h-4 w-4" /> Physics —
+                <BookOpen className="mr-1 inline h-4 w-4" /> 12 subjects —
                 pre-installed and ready to go.
               </div>
               <input

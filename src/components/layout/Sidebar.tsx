@@ -68,7 +68,12 @@ export function Sidebar() {
           <label className="mb-1 block text-xs font-medium text-slate-500">Subject</label>
           <select
             value={subjectId}
-            onChange={(e) => setSubject(e.target.value)}
+            onChange={(e) => {
+              const next = e.target.value;
+              setSubject(next);
+              const levels = (subjects ?? []).find((s) => s.id === next)?.classLevels;
+              if (levels && !levels.includes(classLevel)) setClassLevel(levels[0]);
+            }}
             className="h-10 w-full rounded-lg border border-slate-300 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-950"
           >
             {(subjects ?? []).map((s) => (

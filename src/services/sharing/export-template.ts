@@ -33,8 +33,7 @@ export async function exportSubjectTemplate(
 
 export function isClassLevel(value: unknown): value is ClassLevel {
   return typeof value === "string" && [
-    "Form 1", "Form 2", "Form 3", "Form 4", "Form 5",
-    "Lower Sixth", "Upper Sixth"
+    "Form 1", "Form 2", "Form 3", "Form 4", "Form 5"
   ].includes(value);
 }
 

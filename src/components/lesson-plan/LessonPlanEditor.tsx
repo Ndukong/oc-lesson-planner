@@ -87,7 +87,7 @@ function StringListEditor({
 }
 
 export function LessonPlanEditor() {
-  const { subjectId = "physics", classLevel = "Form 3", weekNumber = "1" } = useParams();
+  const { subjectId = "biology", classLevel = "Form 3", weekNumber = "1" } = useParams();
   const week = Number(weekNumber);
   const navigate = useNavigate();
 

@@ -25,3 +25,7 @@ npm-debug.log*
 
 # TypeScript
 *.tsbuildinfo
+
+# Reference source documents (syllabuses/progression sheets) — not needed at runtime
+samples/
+

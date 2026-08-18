@@ -1,6 +1,7 @@
 import { db } from "@/db/database";
-import { CURRICULUM, PHYSICS_PERIODS_PER_WEEK } from "@/db/seed-curriculum";
-import { CLASS_LEVELS, DEFAULT_CALENDAR } from "@/types";
+import { SUBJECT_SEEDS } from "@/db/seed-curriculum";
+import type { SubjectSeed } from "@/db/seed-curriculum";
+import { DEFAULT_CALENDAR } from "@/types";
 import type {
   AISettings,
   ClassLevel,
@@ -22,99 +23,122 @@ const EVAL_WEEKS: Record<number, number> = {
   36: 6
 };
 
-const HOLIDAY_WEEKS: Record<number, string> = {
-  13: "Christmas Break",
-  14: "Christmas Break",
-  15: "Christmas Break",
-  25: "Easter Break",
-  26: "Easter Break"
-};
+function holidayWeeksFor(holidays: import("@/types").Holiday[]): Record<number, string> {
+  const map: Record<number, string> = {};
+  for (const h of holidays) {
+    for (let w = h.startWeek; w <= h.endWeek; w++) {
+      map[w] = h.name;
+    }
+  }
+  return map;
+}
 
 function slug(level: ClassLevel): string {
   return level.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 }
 
-function topicText(title: string, level: ClassLevel, kind: keyof SyllabusTopic): string {
+function topicText(
+  title: string,
+  level: ClassLevel,
+  kind: keyof SyllabusTopic,
+  subjectName: string
+): string {
   if (kind === "id" || kind === "moduleId" || kind === "name") return "";
+  const sciences = ["Biology", "Human Biology", "Chemistry", "Computer Science", "Geology", "Mathematics", "Physics"];
+  const isScience = sciences.some((s) => subjectName.includes(s));
   switch (kind) {
     case "coreKnowledge":
-      return `Essential content on "${title}" for ${level} following the official MINESEC syllabus. Learners master the key definitions, principles and procedures described in this topic through guided discovery.`;
+      return isScience
+        ? `Essential content on "${title}" for ${level} following the official MINESEC syllabus. Learners master the key definitions, principles and procedures described in this topic through guided discovery.`
+        : `Essential content on "${title}" for ${level} following the official MINESEC syllabus. Learners master the key ideas, concepts and skills described in this topic through guided study and real-life examples.`;
     case "competencies":
-      return `Categories of action: identifying, explaining, applying and experimenting. Examples of actions: observe and describe ${title.toLowerCase()}; carry out simple investigations; interpret results and communicate findings; apply knowledge to real-life situations in the community.`;
+      return isScience
+        ? `Categories of action: identifying, explaining, applying and experimenting. Examples of actions: observe and describe ${title.toLowerCase()}; carry out simple investigations; interpret results and communicate findings; apply knowledge to real-life situations in the community.`
+        : `Categories of action: identifying, explaining, analysing and applying. Examples of actions: examine ${title.toLowerCase()}; discuss and interpret information; express reasoned opinions; apply knowledge to real-life situations in the community.`;
     case "aptitudes":
-      return `Observing accurately; measuring with available instruments; recording data in tables; drawing and labelling simple diagrams; manipulating basic equipment safely; solving numerical problems; working cooperatively in groups.`;
+      return isScience
+        ? `Observing accurately; measuring with available instruments; recording data in tables; drawing and labelling simple diagrams; manipulating basic equipment safely; solving numerical problems; working cooperatively in groups.`
+        : `Reading and analysing texts; taking notes; summarising key points; expressing ideas clearly in speech and writing; discussing in groups; conducting simple enquiries and presenting findings.`;
     case "attitudes":
-      return `Curiosity and love for science; respect for safety rules; honesty in recording results; teamwork and mutual respect; care for the environment; responsible use of resources.`;
+      return `Curiosity and love for the subject; respect for rules; honesty in reporting; teamwork and mutual respect; care for the environment; responsible use of resources.`;
     case "otherResources":
-      return `Locally available items: empty bottles, stones, rulers, string, rubber bands, cardboard, mirrors, candles, matchboxes, flashlight, plastic bags, water, sand, bicycle parts, phone charger, batteries and bulbs, cooking pots, chalk and marker pens.`;
+      return `Locally available items: exercise books, charts, posters, newspapers, maps, models, flashcards, household objects, tools, calculators (where available), chalk and marker pens, and other materials found in the school and community.`;
   }
   return "";
 }
 
-function buildTopics(level: ClassLevel, moduleId: string): SyllabusTopic[] {
+function buildTopics(
+  seed: SubjectSeed,
+  level: ClassLevel,
+  moduleId: string
+): SyllabusTopic[] {
   const seen = new Set<string>();
   const topics: SyllabusTopic[] = [];
-  for (const lesson of CURRICULUM[level]) {
+  for (const lesson of seed.curriculum[level] ?? []) {
     if (seen.has(lesson.chapter)) continue;
     seen.add(lesson.chapter);
     topics.push({
-      id: `topic-${slug(level)}-${topics.length + 1}`,
+      id: `topic-${seed.id}-${slug(level)}-${topics.length + 1}`,
       moduleId,
       name: lesson.chapter,
-      coreKnowledge: topicText(lesson.chapter, level, "coreKnowledge"),
-      competencies: topicText(lesson.chapter, level, "competencies"),
-      aptitudes: topicText(lesson.chapter, level, "aptitudes"),
-      attitudes: topicText(lesson.chapter, level, "attitudes"),
-      otherResources: topicText(lesson.chapter, level, "otherResources")
+      coreKnowledge: topicText(lesson.chapter, level, "coreKnowledge", seed.name),
+      competencies: topicText(lesson.chapter, level, "competencies", seed.name),
+      aptitudes: topicText(lesson.chapter, level, "aptitudes", seed.name),
+      attitudes: topicText(lesson.chapter, level, "attitudes", seed.name),
+      otherResources: topicText(lesson.chapter, level, "otherResources", seed.name)
     });
   }
   return topics;
 }
 
-function buildModules(subjectId: string): SyllabusModule[] {
+function buildModules(seed: SubjectSeed): SyllabusModule[] {
   const modules: SyllabusModule[] = [];
-  for (const level of CLASS_LEVELS) {
+  for (const level of seed.classLevels) {
     const moduleNames: string[] = [];
-    for (const lesson of CURRICULUM[level]) {
+    for (const lesson of seed.curriculum[level] ?? []) {
       if (!moduleNames.includes(lesson.module)) moduleNames.push(lesson.module);
     }
     moduleNames.forEach((name, i) => {
-      const moduleId = `mod-${slug(level)}-${i + 1}`;
+      const moduleId = `mod-${seed.id}-${slug(level)}-${i + 1}`;
       modules.push({
         id: moduleId,
-        subjectId,
+        subjectId: seed.id,
         classLevel: level,
         moduleNumber: i + 1,
         name,
         duration: `${i + 2} hours`,
-        familiesOfSituations: `Learners encounter "${name}" in real-life situations such as household activities, local trades, community health and the natural environment. Lessons use contexts familiar to ${level} learners in Cameroon.`,
-        topics: buildTopics(level, moduleId)
+        familiesOfSituations: `Learners encounter "${name}" in real-life situations such as household activities, local trades, community life and the natural environment. Lessons use contexts familiar to ${level} learners in Cameroon.`,
+        topics: buildTopics(seed, level, moduleId)
       });
     });
   }
   return modules;
 }
 
-function buildProgression(subjectId: string): ProgressionEntry[] {
+function buildProgression(
+  seed: SubjectSeed,
+  holidays: import("@/types").Holiday[] = DEFAULT_CALENDAR.holidays
+): ProgressionEntry[] {
   const entries: ProgressionEntry[] = [];
-  for (const level of CLASS_LEVELS) {
-    const lessons = CURRICULUM[level];
+  const holidayWeeks = holidayWeeksFor(holidays);
+  for (const level of seed.classLevels) {
+    const lessons = seed.curriculum[level] ?? [];
     let lessonIndex = 0;
     for (let week = 1; week <= 36; week++) {
       const term: Term = week <= 12 ? 1 : week <= 24 ? 2 : 3;
       const sequence = (EVAL_WEEKS[week] ?? (week <= 6 ? 1 : week <= 12 ? 2 : week <= 18 ? 3 : week <= 24 ? 4 : week <= 30 ? 5 : 6)) as Sequence;
 
-      if (HOLIDAY_WEEKS[week]) {
+      if (holidayWeeks[week]) {
         entries.push({
-          id: `prog-${slug(level)}-w${week}`,
-          subjectId,
+          id: `prog-${seed.id}-${slug(level)}-w${week}`,
+          subjectId: seed.id,
           classLevel: level,
           term,
           weekNumber: week,
           sequence,
           moduleName: "",
           chapter: "",
-          lessonTitle: HOLIDAY_WEEKS[week],
+          lessonTitle: holidayWeeks[week],
           duration: 0,
           isEvaluation: false,
           isHoliday: true
@@ -125,8 +149,8 @@ function buildProgression(subjectId: string): ProgressionEntry[] {
       if (EVAL_WEEKS[week]) {
         const prev = lessons[Math.min(lessonIndex, lessons.length - 1)];
         entries.push({
-          id: `prog-${slug(level)}-w${week}`,
-          subjectId,
+          id: `prog-${seed.id}-${slug(level)}-w${week}`,
+          subjectId: seed.id,
           classLevel: level,
           term,
           weekNumber: week,
@@ -144,8 +168,8 @@ function buildProgression(subjectId: string): ProgressionEntry[] {
       const lesson = lessons[lessonIndex];
       lessonIndex++;
       entries.push({
-        id: `prog-${slug(level)}-w${week}`,
-        subjectId,
+        id: `prog-${seed.id}-${slug(level)}-w${week}`,
+        subjectId: seed.id,
         classLevel: level,
         term,
         weekNumber: week,
@@ -162,24 +186,24 @@ function buildProgression(subjectId: string): ProgressionEntry[] {
   return entries;
 }
 
-export function buildPhysicsSeed(): {
+export function buildSubjectSeed(seed: SubjectSeed): {
   subject: Subject;
   modules: SyllabusModule[];
   progression: ProgressionEntry[];
   calendar: SchoolCalendar;
 } {
   const subject: Subject = {
-    id: "physics",
-    name: "Physics",
-    classLevels: [...CLASS_LEVELS],
-    periodsPerWeek: PHYSICS_PERIODS_PER_WEEK,
+    id: seed.id,
+    name: seed.name,
+    classLevels: [...seed.classLevels],
+    periodsPerWeek: { ...seed.periodsPerWeek },
     createdAt: new Date(),
     updatedAt: new Date()
   };
   return {
     subject,
-    modules: buildModules("physics"),
-    progression: buildProgression("physics"),
+    modules: buildModules(seed),
+    progression: buildProgression(seed),
     calendar: { ...DEFAULT_CALENDAR }
   };
 }
@@ -188,7 +212,6 @@ export async function initializeDatabase(): Promise<void> {
   const subjectCount = await db.subjects.count();
   if (subjectCount > 0) return;
 
-  const seed = buildPhysicsSeed();
   const defaultSettings: AISettings = {
     id: "default",
     preferredProvider: "gemini",
@@ -204,10 +227,13 @@ export async function initializeDatabase(): Promise<void> {
       db.schoolCalendars,
       db.aiSettings,
       async () => {
-        await db.subjects.add(seed.subject);
-        await db.syllabusModules.bulkAdd(seed.modules);
-        await db.progressionEntries.bulkAdd(seed.progression);
-        await db.schoolCalendars.add(seed.calendar);
+        for (const seed of SUBJECT_SEEDS) {
+          const built = buildSubjectSeed(seed);
+          await db.subjects.add(built.subject);
+          await db.syllabusModules.bulkAdd(built.modules);
+          await db.progressionEntries.bulkAdd(built.progression);
+        }
+        await db.schoolCalendars.add({ ...DEFAULT_CALENDAR });
         await db.aiSettings.add(defaultSettings);
       }
     );
@@ -215,4 +241,23 @@ export async function initializeDatabase(): Promise<void> {
     console.error("[LessonPlanner] Seed transaction failed:", err);
     throw err;
   }
+}
+
+/**
+ * Regenerate the progression grid for every subject using a (possibly
+ * edited) school calendar. Lesson plans that already exist are preserved
+ * (they reference their week directly); only the week's progression row is
+ * recreated so holiday/evaluation weeks stay aligned with the calendar.
+ */
+export async function rebuildProgressionForCalendar(
+  calendar: SchoolCalendar
+): Promise<void> {
+  const entries: ProgressionEntry[] = [];
+  for (const seed of SUBJECT_SEEDS) {
+    entries.push(...buildProgression(seed, calendar.holidays));
+  }
+  await db.transaction("rw", db.progressionEntries, async () => {
+    await db.progressionEntries.clear();
+    await db.progressionEntries.bulkAdd(entries);
+  });
 }

@@ -17,7 +17,8 @@ export async function generateWithGemini(
     contents: [{ role: "user", parts: [{ text: userPrompt }] }],
     generationConfig: {
       responseMimeType: "application/json",
-      temperature: 0.7
+      temperature: 0.7,
+      maxOutputTokens: 8192
     }
   });
   return result.response.text();

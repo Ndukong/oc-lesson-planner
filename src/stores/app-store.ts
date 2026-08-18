@@ -13,7 +13,7 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set) => ({
-  subjectId: "physics",
+  subjectId: "biology",
   classLevel: "Form 3",
   selectedWeek: 1,
   online: typeof navigator !== "undefined" ? navigator.onLine : true,

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { AlertTriangle, CheckCircle2, Loader2, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,14 +12,16 @@ import {
   useCalendar,
   useTeacherProfile
 } from "@/db/hooks";
+import { rebuildProgressionForCalendar } from "@/db/seed";
 import { db } from "@/db/database";
 import { testAIProvider } from "@/services/ai";
 import { useUIStore } from "@/stores/ui-store";
 import { GEMINI_DEFAULT_MODEL } from "@/services/ai/gemini";
 import { GROQ_DEFAULT_MODEL } from "@/services/ai/groq";
 import { toDateInputValue, downloadText } from "@/utils/format";
+import { holidayWeeksFromDates, weekEndDate, weekStartDate } from "@/utils/calendar";
 import { APP_VERSION } from "@/types";
-import type { AISettings, TeacherProfile } from "@/types";
+import type { AISettings, Holiday, TeacherProfile } from "@/types";
 import { cn } from "@/utils/cn";
 
 const MODEL_OPTIONS = [
@@ -44,8 +46,18 @@ export function SettingsPage() {
   const [model, setModel] = useState(GEMINI_DEFAULT_MODEL);
   const [autoGenerate, setAutoGenerate] = useState(false);
   const [startDate, setStartDate] = useState("");
+  const [academicYear, setAcademicYear] = useState("");
+  const [christmasStart, setChristmasStart] = useState("");
+  const [christmasEnd, setChristmasEnd] = useState("");
+  const [easterStart, setEasterStart] = useState("");
+  const [easterEnd, setEasterEnd] = useState("");
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  const academicYearOptions = useMemo(() => {
+    const base = new Date().getFullYear();
+    return Array.from({ length: 12 }, (_, i) => `${base - 1 + i}/${base + i}`);
+  }, []);
 
   useEffect(() => {
     if (profile) {
@@ -66,18 +78,21 @@ export function SettingsPage() {
   }, [settings]);
 
   useEffect(() => {
-    if (calendar) setStartDate(toDateInputValue(calendar.startDate));
+    if (calendar) {
+      setStartDate(toDateInputValue(calendar.startDate));
+      setAcademicYear(calendar.academicYear);
+    }
   }, [calendar]);
 
   useEffect(() => {
-    const root = document.documentElement;
-    if (theme === "dark" || (theme === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
-      root.classList.add("dark");
-    } else {
-      root.classList.remove("dark");
-    }
-    root.style.fontSize = `${fontScale * 100}%`;
-  }, [theme, fontScale]);
+    if (!calendar) return;
+    const xmas = calendar.holidays.find((h) => h.name.includes("Christmas"));
+    const easter = calendar.holidays.find((h) => h.name.includes("Easter"));
+    setChristmasStart(xmas?.startDate ? toDateInputValue(xmas.startDate) : xmas ? toDateInputValue(weekStartDate(xmas.startWeek, calendar)) : "");
+    setChristmasEnd(xmas?.endDate ? toDateInputValue(xmas.endDate) : xmas ? toDateInputValue(weekEndDate(xmas.endWeek, calendar)) : "");
+    setEasterStart(easter?.startDate ? toDateInputValue(easter.startDate) : easter ? toDateInputValue(weekStartDate(easter.startWeek, calendar)) : "");
+    setEasterEnd(easter?.endDate ? toDateInputValue(easter.endDate) : easter ? toDateInputValue(weekEndDate(easter.endWeek, calendar)) : "");
+  }, [calendar]);
 
   const saveProfile = async () => {
     const p: TeacherProfile = {
@@ -85,7 +100,7 @@ export function SettingsPage() {
       name,
       school,
       region,
-      subjects: profile?.subjects ?? ["physics"],
+      subjects: profile?.subjects ?? [],
       defaultClassLevels: profile?.defaultClassLevels ?? ["Form 3"],
       onboarded: true
     };
@@ -117,9 +132,45 @@ export function SettingsPage() {
 
   const saveCalendarDate = async () => {
     if (!calendar) return;
-    const newDate = startDate ? new Date(startDate + "T00:00:00") : calendar.startDate;
-    await db.schoolCalendars.update(calendar.id, { startDate: newDate });
-    toast.success("Academic year start date updated");
+    const newStartDate = startDate ? new Date(startDate + "T00:00:00") : calendar.startDate;
+    const updated = {
+      ...calendar,
+      startDate: newStartDate,
+      academicYear: academicYear || calendar.academicYear
+    };
+    const holidays: Holiday[] = [];
+
+    const mkHoliday = (
+      name: string,
+      s: string,
+      e: string,
+      fallback: Holiday | undefined
+    ): Holiday | null => {
+      if (s && e) {
+        const sd = new Date(s + "T00:00:00");
+        const ed = new Date(e + "T00:00:00");
+        if (ed < sd) {
+          toast.error(`${name}: end date must be after the start date.`);
+          return null;
+        }
+        const { startWeek, endWeek } = holidayWeeksFromDates(sd, ed, updated);
+        return { name, startWeek, endWeek, startDate: sd, endDate: ed };
+      }
+      return fallback ? { ...fallback } : null;
+    };
+
+    const xmas = mkHoliday("Christmas Break", christmasStart, christmasEnd, calendar.holidays.find((h) => h.name.includes("Christmas")));
+    if (xmas === null) return;
+    const easter = mkHoliday("Easter Break", easterStart, easterEnd, calendar.holidays.find((h) => h.name.includes("Easter")));
+    if (easter === null) return;
+
+    if (xmas) holidays.push(xmas);
+    if (easter) holidays.push(easter);
+
+    const save = { ...updated, holidays };
+    await db.schoolCalendars.update(calendar.id, save);
+    await rebuildProgressionForCalendar(save);
+    toast.success("Academic year calendar updated");
   };
 
   const exportBackup = async () => {
@@ -169,9 +220,9 @@ export function SettingsPage() {
       <Card>
         <CardHeader><CardTitle>Profile</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <div><Label>Teacher name</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Mrs. Ngo Buma" /></div>
-          <div><Label>School</Label><Input value={school} onChange={(e) => setSchool(e.target.value)} placeholder="e.g., GHS Buea" /></div>
-          <div><Label>Region</Label><Input value={region} onChange={(e) => setRegion(e.target.value)} placeholder="e.g., South West" /></div>
+          <div><Label>Teacher name</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Ndukong Emmanuel Ngeh" /></div>
+          <div><Label>School</Label><Input value={school} onChange={(e) => setSchool(e.target.value)} placeholder="e.g., Government High School Dumbu" /></div>
+          <div><Label>Region</Label><Input value={region} onChange={(e) => setRegion(e.target.value)} placeholder="e.g., North-West" /></div>
           <Button onClick={saveProfile}>Save Profile</Button>
         </CardContent>
       </Card>
@@ -228,10 +279,24 @@ export function SettingsPage() {
       <Card>
         <CardHeader><CardTitle>Calendar</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-xs text-slate-500">Adjust the academic year start date. Week, term and sequence boundaries follow the national structure.</p>
+          <p className="text-xs text-slate-500">
+            School weeks run Monday to Friday. Set the first day of the academic
+            year and the two holiday breaks. Week, term and sequence boundaries
+            follow the national structure (36 weeks).
+          </p>
           <div className="grid gap-3 sm:grid-cols-2">
-            <div><Label>Academic year</Label><Input value={calendar?.academicYear ?? ""} readOnly /></div>
-            <div><Label>Start date</Label><Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} /></div>
+            <div><Label>Academic year</Label><Select value={academicYear} onChange={(e) => setAcademicYear(e.target.value)}>
+              {academicYearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
+            </Select></div>
+            <div><Label>Year start date (Monday)</Label><Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} /></div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div><Label>Christmas / New Year start</Label><Input type="date" value={christmasStart} onChange={(e) => setChristmasStart(e.target.value)} /></div>
+            <div><Label>Christmas / New Year end</Label><Input type="date" value={christmasEnd} onChange={(e) => setChristmasEnd(e.target.value)} /></div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div><Label>Easter start</Label><Input type="date" value={easterStart} onChange={(e) => setEasterStart(e.target.value)} /></div>
+            <div><Label>Easter end</Label><Input type="date" value={easterEnd} onChange={(e) => setEasterEnd(e.target.value)} /></div>
           </div>
           <Button variant="outline" onClick={saveCalendarDate}>Save Calendar</Button>
         </CardContent>
@@ -245,8 +310,8 @@ export function SettingsPage() {
             <div className="flex gap-2">
               {(["light", "dark", "auto"] as const).map((t) => (
                 <button key={t} onClick={() => setTheme(t)} className={cn("min-h-[40px] flex-1 rounded-lg border px-3 text-sm font-medium", theme === t ? "border-indigo-600 bg-indigo-600 text-white" : "border-slate-300 text-slate-600 dark:border-slate-700 dark:text-slate-300")}>
-                  {t === "light" ? <Sun className="mr-1 inline h-4 w-4" /> : t === "dark" ? <Moon className="mr-1 inline h-4 w-4" /> : "Auto"}
-                  {t}
+                  {t === "light" ? <Sun className="mr-1 inline h-4 w-4" /> : t === "dark" ? <Moon className="mr-1 inline h-4 w-4" /> : <Sun className="mr-1 inline h-4 w-4" />}
+                  {t === "auto" ? "System" : t.charAt(0).toUpperCase() + t.slice(1)}
                 </button>
               ))}
             </div>

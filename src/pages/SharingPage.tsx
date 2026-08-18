@@ -10,6 +10,7 @@ import {
   useCalendar,
   useProgression,
   useSubject,
+  useSubjects,
   useSyllabusModules,
   useTeacherProfile
 } from "@/db/hooks";
@@ -150,16 +151,23 @@ export function SharingPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-between rounded-lg border border-slate-200 p-3 dark:border-slate-700">
-            <div>
-              <p className="font-medium text-slate-800 dark:text-slate-200">
-                Physics
-              </p>
-              <p className="text-xs text-slate-500">
-                Pre-loaded · Form 1 to Upper Sixth · 252 progression entries
-              </p>
-            </div>
-            <Badge variant="success">Installed</Badge>
+          <div className="flex flex-wrap gap-2">
+            {(useSubjects() ?? []).map((s) => (
+              <div
+                key={s.id}
+                className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 p-3 dark:border-slate-700"
+              >
+                <div>
+                  <p className="font-medium text-slate-800 dark:text-slate-200">
+                    {s.name}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Pre-loaded · {s.classLevels.join(", ")}
+                  </p>
+                </div>
+                <Badge variant="success">Installed</Badge>
+              </div>
+            ))}
           </div>
           <p className="mt-3 text-xs text-slate-500">
             Share this app's template files with colleagues via WhatsApp. They
@@ -185,7 +193,7 @@ export function SharingPage() {
             <Input
               value={qrUrl}
               onChange={(e) => setQrUrl(e.target.value)}
-              placeholder="https://example.com/physics-template.json"
+              placeholder="https://example.com/subject-template.json"
             />
             <Button variant="outline" onClick={showQR}>
               <QrCode className="h-4 w-4" /> Generate

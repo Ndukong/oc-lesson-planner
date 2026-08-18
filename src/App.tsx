@@ -7,6 +7,7 @@ import { DashboardPage } from "@/pages/DashboardPage";
 import { ProgressionPage } from "@/pages/ProgressionPage";
 import { initializeDatabase } from "@/db/seed";
 import { db } from "@/db/database";
+import { useTheme } from "@/hooks/useTheme";
 import type { TeacherProfile } from "@/types";
 
 const LessonPlanEditor = lazy(() =>
@@ -76,8 +77,12 @@ function RequireProfile({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  useTheme();
+  // In production the app is served from a sub-path (e.g. /oc-lesson-planner/)
+  // on GitHub Pages; keep the router in sync with Vite's base URL.
+  const basename = import.meta.env.BASE_URL.replace(/\/+$/, "") || "/";
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={basename}>
       <Suspense fallback={<PageSpinner />}>
         <Routes>
           <Route

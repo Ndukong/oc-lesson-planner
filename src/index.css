@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-primary: #4f46e5;
   --color-primary-dark: #4338ca;
@@ -29,6 +31,18 @@ html.dark {
 
 html.dark body {
   @apply bg-slate-950 text-slate-100;
+}
+
+/* Native dropdown options must stay readable in light mode (some browsers
+   render the open list using inherited color/background). */
+select option {
+  color: #1e293b;
+  background-color: #ffffff;
+}
+
+html.dark select option {
+  color: #e2e8f0;
+  background-color: #0f172a;
 }
 
 .no-scrollbar::-webkit-scrollbar {

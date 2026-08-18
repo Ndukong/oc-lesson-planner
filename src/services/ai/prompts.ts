@@ -86,18 +86,168 @@ export function buildSystemPrompt(): string {
   return SYSTEM_PROMPT;
 }
 
+/** Remove one or more markdown code fences (```json ... ```) from the text. */
+function stripFences(text: string): string {
+  return text
+    .replace(/```(?:json)?\s*/gi, "")
+    .replace(/```/g, "")
+    .trim();
+}
+
+/**
+ * Find the outermost balanced JSON value (object or array) in the text,
+ * ignoring braces/brackets that appear inside quoted strings.
+ */
+function extractBalanced(text: string): string | null {
+  let start = -1;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (ch === "\\") {
+        escaped = true;
+      } else if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+    if (ch === "{" || ch === "[") {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (ch === "}" || ch === "]") {
+      depth--;
+      if (depth === 0 && start >= 0) {
+        return text.slice(start, i + 1);
+      }
+    }
+  }
+  return start >= 0 ? text.slice(start) : null;
+}
+
+/** Repair common model mistakes so the text can be parsed as JSON. */
+function repairJson(text: string): string {
+  let out = text;
+  // Remove trailing commas before } or ]
+  out = out.replace(/,\s*([}\]])/g, "$1");
+
+  // Convert single-quoted strings to double-quoted ones using a scanner so we
+  // only touch strings and never content inside double-quoted strings.
+  let converted = "";
+  let i = 0;
+  const n = out.length;
+  while (i < n) {
+    const ch = out[i];
+    if (ch === '"') {
+      // copy the whole double-quoted string verbatim
+      let j = i + 1;
+      while (j < n && (out[j] !== '"' || out[j - 1] === "\\")) j++;
+      converted += out.slice(i, Math.min(j + 1, n));
+      i = j + 1;
+      continue;
+    }
+    if (ch === "'") {
+      let j = i + 1;
+      let body = "";
+      while (j < n) {
+        if (out[j] === "\\" && j + 1 < n) {
+          body += out[j] + out[j + 1];
+          j += 2;
+          continue;
+        }
+        if (out[j] === "'") break;
+        body += out[j];
+        j++;
+      }
+      converted += '"' + body.replace(/"/g, '\\"') + '"';
+      i = j + 1;
+      continue;
+    }
+    converted += ch;
+    i++;
+  }
+  out = converted;
+
+  // Escape literal newlines/tabs that appear inside double-quoted strings.
+  let result = "";
+  let inStr = false;
+  let esc = false;
+  for (const ch of out) {
+    if (inStr) {
+      if (esc) {
+        result += ch;
+        esc = false;
+        continue;
+      }
+      if (ch === "\\") {
+        result += ch;
+        esc = true;
+        continue;
+      }
+      if (ch === '"') {
+        inStr = false;
+        result += ch;
+        continue;
+      }
+      if (ch === "\n") {
+        result += "\\n";
+        continue;
+      }
+      if (ch === "\r") continue;
+      if (ch === "\t") {
+        result += "\\t";
+        continue;
+      }
+      result += ch;
+      continue;
+    }
+    if (ch === '"') {
+      inStr = true;
+      result += ch;
+      continue;
+    }
+    result += ch;
+  }
+  out = result;
+  // Remove any remaining control characters outside of escape sequences
+  out = out.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "");
+  return out.trim();
+}
+
 export function extractJson(text: string): unknown {
-  let cleaned = text.trim();
-  const fence = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fence) cleaned = fence[1].trim();
-  const start = cleaned.indexOf("{");
-  const end = cleaned.lastIndexOf("}");
-  if (start >= 0 && end > start) {
-    cleaned = cleaned.slice(start, end + 1);
+  const candidates: string[] = [];
+  const raw = (text || "").trim();
+
+  // 1. As-is
+  candidates.push(raw);
+  // 2. Markdown fences stripped
+  candidates.push(stripFences(raw));
+  // 3. Outermost balanced JSON value extracted
+  const balanced = extractBalanced(stripFences(raw));
+  if (balanced) candidates.push(balanced);
+
+  // Try each candidate, then a repaired version of each.
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    for (const attempt of [candidate, repairJson(candidate)]) {
+      if (!attempt) continue;
+      try {
+        const parsed = JSON.parse(attempt);
+        if (parsed !== null && typeof parsed === "object") {
+          return parsed;
+        }
+      } catch {
+        // fall through to next candidate
+      }
+    }
   }
-  try {
-    return JSON.parse(cleaned);
-  } catch {
-    throw new Error("AI response could not be parsed as JSON.");
-  }
+
+  throw new Error("AI response could not be parsed as JSON.");
 }
