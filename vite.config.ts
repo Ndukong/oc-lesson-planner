@@ -6,8 +6,9 @@ import path from "node:path";
 import fs from "node:fs";
 
 // GitHub Pages serves project sites from https://<user>.github.io/<repo>/,
-// so all asset URLs must be relative to that sub-path.
-const BASE = "/oc-lesson-planner/";
+// so all asset URLs must be relative to that sub-path. Netlify/other hosts
+// serve from the site root ("/"). Override with VITE_BASE_PATH=/ when needed.
+const BASE = process.env.VITE_BASE_PATH || "/oc-lesson-planner/";
 
 export default defineConfig({
   base: BASE,

@@ -29,3 +29,6 @@ npm-debug.log*
 # Reference source documents (syllabuses/progression sheets) — not needed at runtime
 samples/
 
+
+# Local Netlify folder
+.netlify

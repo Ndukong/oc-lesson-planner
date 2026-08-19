@@ -1,11 +1,24 @@
-import { generateWithGemini, GEMINI_DEFAULT_MODEL } from "@/services/ai/gemini";
-import { generateWithGroq, GROQ_DEFAULT_MODEL } from "@/services/ai/groq";
+import { generateWithGemini, GEMINI_DEFAULT_MODEL, listGeminiModels } from "@/services/ai/gemini";
+import { generateWithGroq, GROQ_DEFAULT_MODEL, listGroqModels } from "@/services/ai/groq";
+import type { AIModelOption } from "@/services/ai/gemini";
 import {
   buildGenerationPrompt,
   buildSystemPrompt,
   extractJson
 } from "@/services/ai/prompts";
-import type { AISettings, LessonField } from "@/types";
+import type { AISettings, AIProvider, LessonField } from "@/types";
+
+export type { AIModelOption };
+
+/** Fetch the list of currently available models for the given provider + key. */
+export async function listAvailableModels(
+  provider: AIProvider,
+  apiKey: string
+): Promise<AIModelOption[]> {
+  if (!apiKey) throw new Error(`No ${provider} API key configured.`);
+  if (provider === "gemini") return listGeminiModels(apiKey);
+  return listGroqModels(apiKey);
+}
 
 export async function generateLessonContent(
   settings: AISettings,

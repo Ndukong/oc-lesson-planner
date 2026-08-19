@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import { AlertTriangle, CheckCircle2, Loader2, Moon, Sun } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, Moon, RefreshCw, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Label, Select } from "@/components/ui/input";
@@ -14,7 +14,8 @@ import {
 } from "@/db/hooks";
 import { rebuildProgressionForCalendar } from "@/db/seed";
 import { db } from "@/db/database";
-import { testAIProvider } from "@/services/ai";
+import { listAvailableModels, testAIProvider } from "@/services/ai";
+import type { AIModelOption } from "@/services/ai";
 import { useUIStore } from "@/stores/ui-store";
 import { GEMINI_DEFAULT_MODEL } from "@/services/ai/gemini";
 import { GROQ_DEFAULT_MODEL } from "@/services/ai/groq";
@@ -23,13 +24,6 @@ import { holidayWeeksFromDates, weekEndDate, weekStartDate } from "@/utils/calen
 import { APP_VERSION } from "@/types";
 import type { AISettings, Holiday, TeacherProfile } from "@/types";
 import { cn } from "@/utils/cn";
-
-const MODEL_OPTIONS = [
-  { provider: "gemini", value: GEMINI_DEFAULT_MODEL, label: "Gemini 2.0 Flash (free tier)" },
-  { provider: "gemini", value: "gemini-1.5-flash", label: "Gemini 1.5 Flash" },
-  { provider: "groq", value: GROQ_DEFAULT_MODEL, label: "Llama 3.3 70B Versatile (free tier)" },
-  { provider: "groq", value: "llama-3.1-8b-instant", label: "Llama 3.1 8B Instant" }
-];
 
 export function SettingsPage() {
   const profile = useTeacherProfile();
@@ -53,6 +47,9 @@ export function SettingsPage() {
   const [easterEnd, setEasterEnd] = useState("");
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [models, setModels] = useState<AIModelOption[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(false);
+  const [modelsError, setModelsError] = useState<string | null>(null);
 
   const academicYearOptions = useMemo(() => {
     const base = new Date().getFullYear();
@@ -74,7 +71,12 @@ export function SettingsPage() {
       setProvider(settings.preferredProvider ?? "gemini");
       setModel(settings.modelPreference ?? GEMINI_DEFAULT_MODEL);
       setAutoGenerate(settings.autoGenerate ?? false);
+      // Populate the model list for the saved provider if a key is stored.
+      const p = settings.preferredProvider ?? "gemini";
+      const key = p === "gemini" ? settings.geminiApiKey : settings.groqApiKey;
+      if (key) refreshModels(p, key, settings.modelPreference ?? (p === "gemini" ? GEMINI_DEFAULT_MODEL : GROQ_DEFAULT_MODEL));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings]);
 
   useEffect(() => {
@@ -129,6 +131,46 @@ export function SettingsPage() {
     setTestResult(res);
     setTesting(false);
   };
+
+  const refreshModels = async (
+    p: AISettings["preferredProvider"] = provider,
+    key: string = p === "gemini" ? geminiKey : groqKey,
+    currentModel: string = model
+  ) => {
+    if (!key) {
+      setModels([]);
+      setModelsError(`Enter your ${p === "gemini" ? "Gemini" : "Groq"} API key, then refresh.`);
+      return;
+    }
+    setModelsLoading(true);
+    setModelsError(null);
+    try {
+      const list = await listAvailableModels(p, key);
+      setModels(list);
+      if (!list.some((m) => m.id === currentModel)) {
+        setModel(list[0]?.id ?? (p === "gemini" ? GEMINI_DEFAULT_MODEL : GROQ_DEFAULT_MODEL));
+      }
+      if (list.length === 0) {
+        setModelsError("No free-tier models found for this key.");
+      }
+    } catch (err) {
+      setModels([]);
+      setModelsError(err instanceof Error ? err.message : "Could not fetch models.");
+    } finally {
+      setModelsLoading(false);
+    }
+  };
+
+  // Refresh models whenever the provider changes (if a key is already saved).
+  useEffect(() => {
+    const key = provider === "gemini" ? geminiKey : groqKey;
+    if (!key) {
+      setModels([]);
+      return;
+    }
+    refreshModels(provider, key, model);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [provider]);
 
   const saveCalendarDate = async () => {
     if (!calendar) return;
@@ -249,13 +291,36 @@ export function SettingsPage() {
             </div>
             <div>
               <Label>Model</Label>
-              <Select value={model} onChange={(e) => setModel(e.target.value)}>
-                {MODEL_OPTIONS.filter((m) => m.provider === provider).map((m) => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
-                ))}
-              </Select>
+              <div className="flex gap-2">
+                <Select value={model} onChange={(e) => setModel(e.target.value)} className="flex-1">
+                  {models.length === 0 ? (
+                    <option value={model}>{model}</option>
+                  ) : (
+                    models.map((m) => (
+                      <option key={m.id} value={m.id}>{m.label}</option>
+                    ))
+                  )}
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => refreshModels()}
+                  disabled={modelsLoading}
+                  title="Fetch available models from the provider"
+                  className="h-11 w-11 shrink-0 px-0"
+                >
+                  {modelsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                </Button>
+              </div>
             </div>
           </div>
+          <p className="text-xs text-slate-500">
+            Tap the refresh icon to load the current list of available (free-tier)
+            models from {provider === "gemini" ? "Google Gemini" : "Groq"} using your API key.
+            {modelsError && (
+              <span className="ml-1 text-amber-600 dark:text-amber-400">{modelsError}</span>
+            )}
+          </p>
           <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
             <input type="checkbox" checked={autoGenerate} onChange={(e) => setAutoGenerate(e.target.checked)} className="h-4 w-4 accent-indigo-600" />
             Auto-generate full lessons when creating a plan
