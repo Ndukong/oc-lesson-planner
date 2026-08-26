@@ -78,8 +78,8 @@ function RequireProfile({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   useTheme();
-  // In production the app is served from a sub-path (e.g. /oc-lesson-planner/)
-  // on GitHub Pages; keep the router in sync with Vite's base URL.
+  // Keep the router in sync with Vite's base URL ("/" on Netlify, or a
+  // sub-path when VITE_BASE_PATH is set for other hosts).
   const basename = import.meta.env.BASE_URL.replace(/\/+$/, "") || "/";
   return (
     <BrowserRouter basename={basename}>

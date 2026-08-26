@@ -3,12 +3,11 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
 import path from "node:path";
-import fs from "node:fs";
 
-// GitHub Pages serves project sites from https://<user>.github.io/<repo>/,
-// so all asset URLs must be relative to that sub-path. Netlify/other hosts
-// serve from the site root ("/"). Override with VITE_BASE_PATH=/ when needed.
-const BASE = process.env.VITE_BASE_PATH || "/oc-lesson-planner/";
+// The app is served from the site root ("/") on Netlify. Only set
+// VITE_BASE_PATH (e.g. /oc-lesson-planner/) if ever deploying to a sub-path
+// such as GitHub Pages project sites.
+const BASE = process.env.VITE_BASE_PATH || "/";
 
 export default defineConfig({
   base: BASE,
@@ -37,22 +36,7 @@ export default defineConfig({
         globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
         navigateFallback: `${BASE}index.html`
       }
-    }),
-    // GitHub Pages serves 404.html for unknown deep links, so make it a copy
-    // of index.html to let the SPA router take over client-side.
-    {
-      name: "copy-index-to-404",
-      apply: "build",
-      closeBundle() {
-        const outDir = path.resolve(__dirname, "dist");
-        fs.copyFileSync(
-          path.join(outDir, "index.html"),
-          path.join(outDir, "404.html")
-        );
-        // Tell GitHub Pages not to run Jekyll over the output.
-        fs.writeFileSync(path.join(outDir, ".nojekyll"), "");
-      }
-    }
+    })
   ],
   resolve: {
     alias: {
