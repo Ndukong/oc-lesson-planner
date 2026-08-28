@@ -23,6 +23,7 @@ import {
   saveLessonPlan,
   useAISettings,
   useCalendar,
+  useLessonPlan,
   useSubject,
   useSyllabusModules,
   useTeacherProfile
@@ -96,6 +97,8 @@ export function LessonPlanEditor() {
   const profile = useTeacherProfile();
   const calendar = useCalendar();
   const settings = useAISettings();
+  // Topic of the previous week's plan — gives the AI continuity context.
+  const previousPlan = useLessonPlan(subjectId, classLevel as never, week - 1);
 
   const [draft, setDraft] = useState<LessonPlan | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -117,7 +120,7 @@ export function LessonPlanEditor() {
     };
   }, [subjectId, classLevel, week]);
 
-  const { saving, savedAt } = useAutoSave(
+  const { saving, savedAt, flush } = useAutoSave(
     draft,
     async (d) => {
       if (d) await saveLessonPlan(d);
@@ -146,9 +149,9 @@ export function LessonPlanEditor() {
       aptitudes: topic?.aptitudes ?? "",
       attitudes: topic?.attitudes ?? "",
       otherResources: topic?.otherResources ?? "",
-      previousLessonTitle: ""
+      previousLessonTitle: week > 1 ? previousPlan?.topic ?? "" : ""
     };
-  }, [draft, subject, modules]);
+  }, [draft, subject, modules, previousPlan, week]);
 
   const applyResult = (res: Record<string, unknown>, field?: LessonField) => {
     const fields: LessonField[] = field ? [field] : (Object.keys(res) as LessonField[]);
@@ -225,7 +228,14 @@ export function LessonPlanEditor() {
   return (
     <div className="mx-auto max-w-4xl space-y-4">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => {
+            void flush().finally(() => navigate(-1));
+          }}
+          aria-label="Back"
+        >
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="min-w-0 flex-1">

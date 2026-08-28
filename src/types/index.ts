@@ -3,7 +3,9 @@ export const CLASS_LEVELS = [
   "Form 2",
   "Form 3",
   "Form 4",
-  "Form 5"
+  "Form 5",
+  "Lower Sixth",
+  "Upper Sixth"
 ] as const;
 
 export type ClassLevel = (typeof CLASS_LEVELS)[number];
@@ -259,18 +261,24 @@ export const DEFAULT_ACADEMIC_YEAR = "2025/2026";
 export const DEFAULT_CALENDAR: SchoolCalendar = {
   id: "default-calendar",
   academicYear: DEFAULT_ACADEMIC_YEAR,
-  startDate: new Date("2025-09-01T00:00:00"),
-  endDate: new Date("2026-05-31T00:00:00"),
+  // Local-time constructors (not ISO strings) so the date is the same
+  // calendar day regardless of the device's timezone offset.
+  startDate: new Date(2025, 8, 1),
+  endDate: new Date(2026, 4, 31),
   holidays: [
-    { name: "Christmas Break", startWeek: 13, endWeek: 14, startDate: new Date("2025-11-24T00:00:00"), endDate: new Date("2025-12-05T00:00:00") },
-    { name: "Easter Break", startWeek: 25, endWeek: 26, startDate: new Date("2026-02-16T00:00:00"), endDate: new Date("2026-02-27T00:00:00") }
+    { name: "Christmas Break", startWeek: 13, endWeek: 14, startDate: new Date(2025, 10, 24), endDate: new Date(2025, 11, 5) },
+    { name: "Easter Break", startWeek: 25, endWeek: 26, startDate: new Date(2026, 1, 16), endDate: new Date(2026, 1, 27) }
   ],
+  // Sequences are contiguous 6-week blocks (weeks 1-36) so every week belongs
+  // to exactly one sequence; holidays fall INSIDE a sequence (weeks are still
+  // marked as holidays via the holidays list). Evaluation weeks are the last
+  // week of each sequence (6, 12, 18, 24, 30, 36).
   sequences: [
     { number: 1, startWeek: 1, endWeek: 6, evaluationWeek: 6 },
     { number: 2, startWeek: 7, endWeek: 12, evaluationWeek: 12 },
-    { number: 3, startWeek: 16, endWeek: 18, evaluationWeek: 18 },
+    { number: 3, startWeek: 13, endWeek: 18, evaluationWeek: 18 },
     { number: 4, startWeek: 19, endWeek: 24, evaluationWeek: 24 },
-    { number: 5, startWeek: 27, endWeek: 30, evaluationWeek: 30 },
+    { number: 5, startWeek: 25, endWeek: 30, evaluationWeek: 30 },
     { number: 6, startWeek: 31, endWeek: 36, evaluationWeek: 36 }
   ]
 };

@@ -29,6 +29,12 @@ npm-debug.log*
 # Reference source documents (syllabuses/progression sheets) — not needed at runtime
 samples/
 
+# Exported lesson plans / backups accidentally saved into the repo root
+*-lesson-plan*.docx
+*-lesson-plan*.pdf
+*-lesson-plans-*.docx
+*-lesson-plans-*.pdf
+lesson-planner-backup-*.json
 
 # Local Netlify folder
 .netlify

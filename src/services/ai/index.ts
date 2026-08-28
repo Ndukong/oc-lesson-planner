@@ -1,6 +1,7 @@
 import { generateWithGemini, GEMINI_DEFAULT_MODEL, listGeminiModels } from "@/services/ai/gemini";
 import { generateWithGroq, GROQ_DEFAULT_MODEL, listGroqModels } from "@/services/ai/groq";
 import type { AIModelOption } from "@/services/ai/gemini";
+import { attemptWithRetry } from "@/services/ai/retry";
 import {
   buildGenerationPrompt,
   buildSystemPrompt,
@@ -23,7 +24,8 @@ export async function listAvailableModels(
 export async function generateLessonContent(
   settings: AISettings,
   context: Parameters<typeof buildGenerationPrompt>[0],
-  fields: LessonField[]
+  fields: LessonField[],
+  signal?: AbortSignal
 ): Promise<Record<string, unknown>> {
   const provider = settings.preferredProvider;
   const apiKey =
@@ -42,18 +44,17 @@ export async function generateLessonContent(
     settings.modelPreference ||
     (provider === "gemini" ? GEMINI_DEFAULT_MODEL : GROQ_DEFAULT_MODEL);
 
-  let raw: string;
-  if (provider === "gemini") {
-    raw = await generateWithGemini(apiKey, systemPrompt, userPrompt, modelPreference);
-  } else {
-    raw = await generateWithGroq(apiKey, systemPrompt, userPrompt, modelPreference);
-  }
-
-  const parsed = extractJson(raw);
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    throw new Error("AI returned an unexpected response shape.");
-  }
-  return parsed as Record<string, unknown>;
+  return attemptWithRetry(async () => {
+    const raw =
+      provider === "gemini"
+        ? await generateWithGemini(apiKey, systemPrompt, userPrompt, modelPreference, signal)
+        : await generateWithGroq(apiKey, systemPrompt, userPrompt, modelPreference, signal);
+    const parsed = extractJson(raw);
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      throw new Error("AI returned an unexpected response shape.");
+    }
+    return parsed as Record<string, unknown>;
+  }, signal);
 }
 
 export async function testAIProvider(

@@ -1,27 +1,16 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { Check, Loader2, Sparkles, Wand2 } from "lucide-react";
+import { Check, Loader2, Sparkles, Wand2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { generateLessonContent } from "@/services/ai";
 import type { GenerationContext } from "@/services/ai/prompts";
+import { ALL_LESSON_FIELDS, LESSON_FIELD_GROUPS } from "@/services/ai/prompts";
+import { isAbortError } from "@/services/ai/retry";
 import type { AISettings, LessonField } from "@/types";
 import { FIELD_LABELS } from "@/types";
 import { MarkdownPreview } from "@/components/lesson-plan/MarkdownPreview";
-
-const ALL_FIELDS: LessonField[] = [
-  "previousKnowledge",
-  "objectives",
-  "introduction",
-  "activities",
-  "materials",
-  "lessonNotes",
-  "conclusion",
-  "homework",
-  "evaluationCriteria",
-  "differentiation"
-];
 
 function PreviewBlock({ label, content }: { label: string; content: unknown }) {
   const text = Array.isArray(content)
@@ -39,6 +28,8 @@ function PreviewBlock({ label, content }: { label: string; content: unknown }) {
   );
 }
 
+const STEP_LABELS = ["lesson structure", "lesson notes"];
+
 export function AIPanel({
   open,
   onClose,
@@ -53,29 +44,91 @@ export function AIPanel({
   onAccept: (result: Record<string, unknown>) => void;
 }) {
   const [generating, setGenerating] = useState(false);
+  const [stepLabel, setStepLabel] = useState<string | null>(null);
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const controllerRef = useRef<AbortController | null>(null);
 
-  const generate = async () => {
+  // Closing the panel cancels any in-flight generation.
+  useEffect(() => {
+    if (!open) controllerRef.current?.abort();
+  }, [open]);
+
+  const runFields = async (
+    fields: LessonField[],
+    stepIndex: number
+  ): Promise<boolean> => {
+    if (!settings) return false;
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    setStepLabel(`Step ${stepIndex + 1} of ${LESSON_FIELD_GROUPS.length} — ${STEP_LABELS[stepIndex] ?? "content"}…`);
+    setGenerating(true);
+    try {
+      const res = await generateLessonContent(
+        settings,
+        context,
+        fields,
+        controller.signal
+      );
+      setResult((prev) => ({ ...(prev ?? {}), ...res }));
+      setError(null);
+      return true;
+    } catch (err) {
+      if (!isAbortError(err)) {
+        const msg = err instanceof Error ? err.message : "Generation failed.";
+        setError(msg);
+        toast.error(msg);
+      }
+      return false;
+    } finally {
+      setGenerating(false);
+      setStepLabel(null);
+      controllerRef.current = null;
+    }
+  };
+
+  const runGroups = async (groups: LessonField[][]) => {
+    let succeeded = 0;
+    for (let gi = 0; gi < groups.length; gi++) {
+      const fields = groups[gi];
+      if (fields.length === 0) {
+        succeeded++;
+        continue;
+      }
+      const ok = await runFields(fields, gi);
+      if (!ok) break;
+      succeeded++;
+    }
+    if (succeeded === groups.length) {
+      toast.success("Content generated — review and accept");
+    } else if (succeeded > 0) {
+      toast.success("Partially generated — retry the missing parts");
+    }
+  };
+
+  const generateFull = async () => {
     if (!settings) {
       setError("No AI settings found. Configure an API key in Settings first.");
       return;
     }
-    setGenerating(true);
     setError(null);
     setResult(null);
-    try {
-      const res = await generateLessonContent(settings, context, ALL_FIELDS);
-      setResult(res);
-      toast.success("Content generated — review and accept");
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Generation failed.";
-      setError(msg);
-      toast.error(msg);
-    } finally {
-      setGenerating(false);
-    }
+    await runGroups(LESSON_FIELD_GROUPS);
   };
+
+  const retryMissing = async () => {
+    if (!settings) return;
+    const missing = new Set(
+      ALL_LESSON_FIELDS.filter((f) => result?.[f] === undefined)
+    );
+    const groups = LESSON_FIELD_GROUPS.map((group) =>
+      group.filter((f) => missing.has(f))
+    );
+    setError(null);
+    await runGroups(groups);
+  };
+
+  const cancel = () => controllerRef.current?.abort();
 
   const accept = () => {
     if (!result) return;
@@ -84,6 +137,10 @@ export function AIPanel({
     onClose();
     setResult(null);
   };
+
+  const missingCount = result
+    ? ALL_LESSON_FIELDS.filter((f) => result[f] === undefined).length
+    : 0;
 
   return (
     <Dialog open={open} onClose={onClose} title="AI Lesson Assistant">
@@ -94,14 +151,27 @@ export function AIPanel({
         </p>
 
         {!result && (
-          <Button onClick={generate} disabled={generating} className="w-full">
-            {generating ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Wand2 className="h-4 w-4" />
+          <div className="flex gap-2">
+            <Button onClick={generateFull} disabled={generating} className="flex-1">
+              {generating ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Wand2 className="h-4 w-4" />
+              )}
+              {generating ? "Generating…" : "Generate Full Lesson"}
+            </Button>
+            {generating && (
+              <Button variant="outline" onClick={cancel}>
+                <X className="h-4 w-4" /> Cancel
+              </Button>
             )}
-            {generating ? "Generating full lesson..." : "Generate Full Lesson"}
-          </Button>
+          </div>
+        )}
+
+        {generating && stepLabel && (
+          <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
+            {stepLabel}
+          </p>
         )}
 
         {error && (
@@ -113,7 +183,7 @@ export function AIPanel({
         {result && (
           <>
             <div className="max-h-[50vh] space-y-3 overflow-y-auto pr-1">
-              {ALL_FIELDS.filter((f) => result[f] !== undefined && result[f] !== "").map((f) => (
+              {ALL_LESSON_FIELDS.filter((f) => result[f] !== undefined && result[f] !== "").map((f) => (
                 <PreviewBlock
                   key={f}
                   label={FIELD_LABELS[f]}
@@ -121,13 +191,27 @@ export function AIPanel({
                 />
               ))}
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={generate} disabled={generating}>
-                <Sparkles className="h-4 w-4" /> Regenerate
-              </Button>
-              <Button onClick={accept} className="flex-1">
-                <Check className="h-4 w-4" /> Accept All
-              </Button>
+            <div className="flex flex-wrap gap-2">
+              {!generating && missingCount > 0 && (
+                <Button variant="outline" className="flex-1" onClick={retryMissing}>
+                  <Sparkles className="h-4 w-4" /> Retry missing ({missingCount})
+                </Button>
+              )}
+              {!generating && (
+                <Button variant="outline" className="flex-1" onClick={generateFull}>
+                  <Sparkles className="h-4 w-4" /> Regenerate
+                </Button>
+              )}
+              {!generating && (
+                <Button onClick={accept} className="flex-1">
+                  <Check className="h-4 w-4" /> Accept All
+                </Button>
+              )}
+              {generating && (
+                <Button variant="outline" onClick={cancel}>
+                  <X className="h-4 w-4" /> Cancel
+                </Button>
+              )}
             </div>
           </>
         )}

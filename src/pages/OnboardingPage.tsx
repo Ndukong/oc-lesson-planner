@@ -114,7 +114,9 @@ export function OnboardingPage() {
                 loaded: <strong>Biology, Human Biology, Chemistry, Citizenship
                 Education, Computer Science, Economics, Geography, Geology,
                 History, Literature in English, Mathematics and Physics.</strong>{" "}
-                Import more subjects from colleagues.
+                Lower and Upper Sixth classes can be planned freely — open the
+                Progression grid and tap any week. Import more subjects from
+                colleagues.
               </p>
               <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200">
                 <BookOpen className="mr-1 inline h-4 w-4" /> 12 subjects —

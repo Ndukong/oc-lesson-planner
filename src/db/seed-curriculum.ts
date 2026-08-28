@@ -20,8 +20,8 @@ export const SUBJECT_SEEDS: SubjectSeed[] = [
   {
     id: "biology",
     name: "Biology",
-    classLevels: ["Form 1", "Form 2", "Form 3", "Form 4", "Form 5"],
-    periodsPerWeek: { "Form 1": 2, "Form 2": 2, "Form 3": 3, "Form 4": 3, "Form 5": 3 },
+    classLevels: ["Form 1", "Form 2", "Form 3", "Form 4", "Form 5", "Lower Sixth", "Upper Sixth"],
+    periodsPerWeek: { "Form 1": 2, "Form 2": 2, "Form 3": 3, "Form 4": 3, "Form 5": 3, "Lower Sixth": 6, "Upper Sixth": 6 },
     curriculum: {
       "Form 1": [
         { module: "The Living World", chapter: "1.Understanding Biology", title: "Notion of Biology", duration: 2 },
@@ -189,8 +189,8 @@ export const SUBJECT_SEEDS: SubjectSeed[] = [
   {
     id: "human-biology",
     name: "Human Biology",
-    classLevels: ["Form 4", "Form 5"],
-    periodsPerWeek: { "Form 4": 3, "Form 5": 3 },
+    classLevels: ["Form 4", "Form 5", "Lower Sixth", "Upper Sixth"],
+    periodsPerWeek: { "Form 4": 3, "Form 5": 3, "Lower Sixth": 6, "Upper Sixth": 6 },
     curriculum: {
       "Form 4": [
         { module: "The Living World", chapter: "1. Understanding Human Biology", title: "Man as a Mammal, Structure and Functions of Parts of the Human Body", duration: 3 },
@@ -259,8 +259,8 @@ export const SUBJECT_SEEDS: SubjectSeed[] = [
   {
     id: "chemistry",
     name: "Chemistry",
-    classLevels: ["Form 1", "Form 2", "Form 3", "Form 4", "Form 5"],
-    periodsPerWeek: { "Form 1": 2, "Form 2": 2, "Form 3": 2, "Form 4": 3, "Form 5": 3 },
+    classLevels: ["Form 1", "Form 2", "Form 3", "Form 4", "Form 5", "Lower Sixth", "Upper Sixth"],
+    periodsPerWeek: { "Form 1": 2, "Form 2": 2, "Form 3": 2, "Form 4": 3, "Form 5": 3, "Lower Sixth": 6, "Upper Sixth": 6 },
     curriculum: {
       "Form 1": [
         { module: "Matter: Properties and Transformation", chapter: "Understanding chemistry", title: "1.1. Chemistry and its importance in everyday life", duration: 2 },
@@ -603,8 +603,8 @@ export const SUBJECT_SEEDS: SubjectSeed[] = [
   {
     id: "computer-science",
     name: "Computer Science",
-    classLevels: ["Form 1", "Form 2", "Form 3", "Form 4", "Form 5"],
-    periodsPerWeek: { "Form 1": 2, "Form 2": 2, "Form 3": 2, "Form 4": 2, "Form 5": 2 },
+    classLevels: ["Form 1", "Form 2", "Form 3", "Form 4", "Form 5", "Lower Sixth", "Upper Sixth"],
+    periodsPerWeek: { "Form 1": 2, "Form 2": 2, "Form 3": 2, "Form 4": 2, "Form 5": 2, "Lower Sixth": 4, "Upper Sixth": 4 },
     curriculum: {
       "Form 1": [
         { module: "The Computing Environment", chapter: "Determination of material and software needs", title: "Areas of computer application", duration: 2 },
@@ -758,8 +758,8 @@ export const SUBJECT_SEEDS: SubjectSeed[] = [
   {
     id: "economics",
     name: "Economics",
-    classLevels: ["Form 3", "Form 4", "Form 5"],
-    periodsPerWeek: { "Form 3": 2, "Form 4": 2, "Form 5": 3 },
+    classLevels: ["Form 3", "Form 4", "Form 5", "Lower Sixth", "Upper Sixth"],
+    periodsPerWeek: { "Form 3": 2, "Form 4": 2, "Form 5": 3, "Lower Sixth": 4, "Upper Sixth": 4 },
     curriculum: {
       "Form 3": [
         { module: "Economics and Resource Allocation", chapter: "Nature and Scope of Economics", title: "Meaning of Economics", duration: 2 },
@@ -861,8 +861,8 @@ export const SUBJECT_SEEDS: SubjectSeed[] = [
   {
     id: "geography",
     name: "Geography",
-    classLevels: ["Form 1", "Form 2", "Form 3", "Form 4", "Form 5"],
-    periodsPerWeek: { "Form 1": 2, "Form 2": 2, "Form 3": 2, "Form 4": 2, "Form 5": 3 },
+    classLevels: ["Form 1", "Form 2", "Form 3", "Form 4", "Form 5", "Lower Sixth", "Upper Sixth"],
+    periodsPerWeek: { "Form 1": 2, "Form 2": 2, "Form 3": 2, "Form 4": 2, "Form 5": 3, "Lower Sixth": 4, "Upper Sixth": 4 },
     curriculum: {
       "Form 1": [
         { module: "Protect the environment", chapter: "Definition", title: "Lesson 1- Definition: Geography (branches and sub branches, methods and importance)", duration: 1 },
@@ -1040,8 +1040,8 @@ export const SUBJECT_SEEDS: SubjectSeed[] = [
   {
     id: "geology",
     name: "Geology",
-    classLevels: ["Form 4", "Form 5"],
-    periodsPerWeek: { "Form 4": 3, "Form 5": 3 },
+    classLevels: ["Form 4", "Form 5", "Lower Sixth", "Upper Sixth"],
+    periodsPerWeek: { "Form 4": 3, "Form 5": 3, "Lower Sixth": 4, "Upper Sixth": 4 },
     curriculum: {
       "Form 4": [
         { module: "Internal Geodynamic Processes", chapter: "Introduction to Geology", title: "Definition of Geology and its relationship with other subjects", duration: 3 },
@@ -1111,8 +1111,8 @@ export const SUBJECT_SEEDS: SubjectSeed[] = [
   {
     id: "history",
     name: "History",
-    classLevels: ["Form 1", "Form 2", "Form 3", "Form 4", "Form 5"],
-    periodsPerWeek: { "Form 1": 2, "Form 2": 2, "Form 3": 2, "Form 4": 2, "Form 5": 2 },
+    classLevels: ["Form 1", "Form 2", "Form 3", "Form 4", "Form 5", "Lower Sixth", "Upper Sixth"],
+    periodsPerWeek: { "Form 1": 2, "Form 2": 2, "Form 3": 2, "Form 4": 2, "Form 5": 2, "Lower Sixth": 4, "Upper Sixth": 4 },
     curriculum: {
       "Form 1": [
         { module: "Introduction to the Study of History", chapter: "Introduction to history and periodization", title: "Lesson 1: Introduction to the study of history (definition and sources); Periodization in history appropriate to Africa", duration: 2 },
@@ -1296,8 +1296,8 @@ export const SUBJECT_SEEDS: SubjectSeed[] = [
   {
     id: "literature-in-english",
     name: "Literature in English",
-    classLevels: ["Form 1", "Form 2", "Form 3", "Form 4", "Form 5"],
-    periodsPerWeek: { "Form 1": 2, "Form 2": 2, "Form 3": 2, "Form 4": 2, "Form 5": 2 },
+    classLevels: ["Form 1", "Form 2", "Form 3", "Form 4", "Form 5", "Lower Sixth", "Upper Sixth"],
+    periodsPerWeek: { "Form 1": 2, "Form 2": 2, "Form 3": 2, "Form 4": 2, "Form 5": 2, "Lower Sixth": 4, "Upper Sixth": 4 },
     curriculum: {
       "Form 1": [
         { module: "Exploring Oral African Prose Forms for Entertainment and Education", chapter: "Getting to Know the Learners / General Introduction", title: "Getting to know the learners; general introduction, class rules and concepts of literature", duration: 2 },
@@ -1490,8 +1490,8 @@ export const SUBJECT_SEEDS: SubjectSeed[] = [
   {
     id: "mathematics",
     name: "Mathematics",
-    classLevels: ["Form 1", "Form 2", "Form 3", "Form 4", "Form 5"],
-    periodsPerWeek: { "Form 1": 4, "Form 2": 4, "Form 3": 4, "Form 4": 4, "Form 5": 4 },
+    classLevels: ["Form 1", "Form 2", "Form 3", "Form 4", "Form 5", "Lower Sixth", "Upper Sixth"],
+    periodsPerWeek: { "Form 1": 4, "Form 2": 4, "Form 3": 4, "Form 4": 4, "Form 5": 4, "Lower Sixth": 6, "Upper Sixth": 6 },
     curriculum: {
       "Form 1": [
         { module: "Numbers and Numerals", chapter: "Numbers and Numerals", title: "1. Numbers and Numerals (3h)", duration: 3 },
@@ -1646,8 +1646,8 @@ export const SUBJECT_SEEDS: SubjectSeed[] = [
   {
     id: "physics",
     name: "Physics",
-    classLevels: ["Form 1", "Form 2", "Form 3", "Form 4", "Form 5"],
-    periodsPerWeek: { "Form 1": 2, "Form 2": 2, "Form 3": 3, "Form 4": 3, "Form 5": 3 },
+    classLevels: ["Form 1", "Form 2", "Form 3", "Form 4", "Form 5", "Lower Sixth", "Upper Sixth"],
+    periodsPerWeek: { "Form 1": 2, "Form 2": 2, "Form 3": 3, "Form 4": 3, "Form 5": 3, "Lower Sixth": 6, "Upper Sixth": 6 },
     curriculum: {
       "Form 1": [
         { module: "The World of Science", chapter: "Introduction to Science", title: "First contact with learners; definition and branches of science", duration: 1 },

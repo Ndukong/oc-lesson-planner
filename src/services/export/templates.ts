@@ -84,9 +84,24 @@ export function buildExportSections(
     });
   }
 
+  if (plan.differentiation) {
+    sections.push({ title: "DIFFERENTIATION", lines: [plan.differentiation] });
+  }
+
+  if (plan.crossCuttingCompetencies.length) {
+    sections.push({
+      title: "CROSS-CUTTING COMPETENCIES",
+      lines: [plan.crossCuttingCompetencies.join("  •  ")]
+    });
+  }
+
+  const reflectionLines: string[] = [plan.teacherReflection || "What went well:\n\nTo improve:\n\n"];
+  if (plan.attendanceNote) {
+    reflectionLines.push(`Attendance / context: ${plan.attendanceNote}`);
+  }
   sections.push({
     title: "TEACHER'S REFLECTION (post-lesson)",
-    lines: [plan.teacherReflection || "What went well:\n\nTo improve:\n\n"]
+    lines: reflectionLines
   });
 
   return { header, sections };

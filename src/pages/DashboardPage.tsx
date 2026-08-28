@@ -1,11 +1,14 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 import {
   AlertTriangle,
   ArrowRight,
   CalendarCheck2,
   FileDown,
+  Loader2,
   PlayCircle,
+  ShieldCheck,
   Sparkles,
   Swords
 } from "lucide-react";
@@ -23,6 +26,12 @@ import { useAppStore } from "@/stores/app-store";
 import { useCurrentWeek } from "@/hooks/useCurrentWeek";
 import { TERM_NAMES } from "@/types";
 import { daysUntilEvaluation, weekInfo } from "@/utils/calendar";
+import {
+  buildBackup,
+  downloadBackup,
+  shouldRemindBackup,
+  snoozeBackupReminder
+} from "@/services/backup";
 
 export function DashboardPage() {
   const { subjectId, classLevel } = useAppStore();
@@ -67,6 +76,23 @@ export function DashboardPage() {
   const daysEval = calendar ? daysUntilEvaluation(week, calendar) : null;
   const info = calendar ? weekInfo(week, calendar) : null;
 
+  const [backupReminderOpen, setBackupReminderOpen] = useState(true);
+  const [backingUp, setBackingUp] = useState(false);
+  const remindBackup = shouldRemindBackup((plans?.length ?? 0) > 0);
+
+  const handleBackupNow = async () => {
+    setBackingUp(true);
+    try {
+      downloadBackup(await buildBackup(false));
+      toast.success("Backup downloaded — keep a copy somewhere safe");
+      setBackupReminderOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Backup failed");
+    } finally {
+      setBackingUp(false);
+    }
+  };
+
   const completedPerLevel = useMemo(() => {
     const map: Record<string, { done: number; total: number }> = {};
     for (const s of subjects ?? []) {
@@ -99,6 +125,47 @@ export function DashboardPage() {
           <Button size="sm" onClick={() => navigate("/settings")}>
             Open Settings
           </Button>
+        </div>
+      )}
+
+      {backupReminderOpen && remindBackup && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-amber-50 p-4 dark:bg-amber-950/50">
+          <div className="flex items-start gap-3">
+            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+            <div>
+              <p className="font-semibold text-amber-900 dark:text-amber-200">
+                Back up your lesson plans
+              </p>
+              <p className="text-sm text-amber-800 dark:text-amber-300">
+                Everything lives only on this device. Export a copy so a lost or
+                replaced phone does not erase your work.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              onClick={() => void handleBackupNow()}
+              disabled={backingUp}
+            >
+              {backingUp ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileDown className="h-4 w-4" />
+              )}
+              Back up now
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                snoozeBackupReminder();
+                setBackupReminderOpen(false);
+              }}
+            >
+              Later
+            </Button>
+          </div>
         </div>
       )}
 

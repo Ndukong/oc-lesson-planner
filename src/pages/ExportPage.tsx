@@ -14,7 +14,7 @@ import {
 } from "@/db/hooks";
 import { useAppStore } from "@/stores/app-store";
 import { exportLessonsBatchPDF } from "@/services/export/pdf";
-import { exportLessonPlanDocx } from "@/services/export/docx";
+import { exportLessonPlansBatchDocx } from "@/services/export/docx";
 import { STATUS_COLORS, STATUS_LABELS, TERM_NAMES } from "@/types";
 import type { LessonPlan, Sequence, Term } from "@/types";
 import { weekRangeForSequence, weekRangeForTerm } from "@/utils/calendar";
@@ -96,9 +96,7 @@ export function ExportPage() {
     setExporting(true);
     try {
       if (kind === "pdf") await exportLessonsBatchPDF(chosen, meta);
-      else {
-        for (const p of chosen) await exportLessonPlanDocx(p, meta);
-      }
+      else await exportLessonPlansBatchDocx(chosen, meta);
       toast.success(`Exported ${chosen.length} lesson plan${chosen.length > 1 ? "s" : ""}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Export failed");

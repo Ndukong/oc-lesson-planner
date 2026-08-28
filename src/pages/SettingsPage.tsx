@@ -16,10 +16,16 @@ import { rebuildProgressionForCalendar } from "@/db/seed";
 import { db } from "@/db/database";
 import { listAvailableModels, testAIProvider } from "@/services/ai";
 import type { AIModelOption } from "@/services/ai";
+import {
+  applyBackup,
+  buildBackup,
+  downloadBackup,
+  validateBackup
+} from "@/services/backup";
 import { useUIStore } from "@/stores/ui-store";
 import { GEMINI_DEFAULT_MODEL } from "@/services/ai/gemini";
 import { GROQ_DEFAULT_MODEL } from "@/services/ai/groq";
-import { toDateInputValue, downloadText } from "@/utils/format";
+import { toDateInputValue } from "@/utils/format";
 import { holidayWeeksFromDates, weekEndDate, weekStartDate } from "@/utils/calendar";
 import { APP_VERSION } from "@/types";
 import type { AISettings, Holiday, TeacherProfile } from "@/types";
@@ -50,6 +56,9 @@ export function SettingsPage() {
   const [models, setModels] = useState<AIModelOption[]>([]);
   const [modelsLoading, setModelsLoading] = useState(false);
   const [modelsError, setModelsError] = useState<string | null>(null);
+  const [includeKeys, setIncludeKeys] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [restoring, setRestoring] = useState(false);
 
   const academicYearOptions = useMemo(() => {
     const base = new Date().getFullYear();
@@ -216,37 +225,50 @@ export function SettingsPage() {
   };
 
   const exportBackup = async () => {
-    const backup = {
-      version: APP_VERSION,
-      exportedAt: new Date().toISOString(),
-      subjects: await db.subjects.toArray(),
-      syllabusModules: await db.syllabusModules.toArray(),
-      progressionEntries: await db.progressionEntries.toArray(),
-      schoolCalendars: await db.schoolCalendars.toArray(),
-      lessonPlans: await db.lessonPlans.toArray(),
-      aiSettings: await db.aiSettings.toArray(),
-      teacherProfile: await db.teacherProfile.toArray()
-    };
-    downloadText(JSON.stringify(backup, null, 2), `lesson-planner-backup-${new Date().toISOString().slice(0, 10)}.json`);
-    toast.success("Backup downloaded");
+    setExporting(true);
+    try {
+      const backup = await buildBackup(includeKeys);
+      downloadBackup(backup);
+      const plans = Array.isArray(backup.lessonPlans) ? backup.lessonPlans.length : 0;
+      toast.success(
+        `Backup downloaded (${plans} lesson plan${plans === 1 ? "" : "s"}${includeKeys ? ", including API keys" : ""})`
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Backup failed");
+    } finally {
+      setExporting(false);
+    }
   };
 
   const importBackup = async (file: File) => {
+    setRestoring(true);
     try {
-      const data = JSON.parse(await file.text());
-      if (!Array.isArray(data.subjects)) throw new Error("Not a backup file");
-      await Promise.all([
-        db.subjects.bulkPut(data.subjects),
-        db.syllabusModules.bulkPut(data.syllabusModules ?? []),
-        db.progressionEntries.bulkPut(data.progressionEntries ?? []),
-        db.schoolCalendars.bulkPut(data.schoolCalendars ?? []),
-        db.lessonPlans.bulkPut(data.lessonPlans ?? []),
-        db.aiSettings.bulkPut(data.aiSettings ?? []),
-        db.teacherProfile.bulkPut(data.teacherProfile ?? [])
-      ]);
-      toast.success("Backup restored — restart the app");
+      const json: unknown = JSON.parse(await file.text());
+      const res = validateBackup(json);
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      const s = res.summary;
+      const when = s.exportedAt
+        ? new Date(s.exportedAt).toLocaleDateString()
+        : "an unknown date";
+      const keys = s.includesApiKeys
+        ? "including your AI API keys"
+        : "without API keys";
+      const confirmed = window.confirm(
+        `Restore backup from ${when}?\n\n` +
+          `${s.counts.lessonPlans} lesson plan(s) · ${s.counts.subjects} subject(s) · ${keys}\n\n` +
+          `This REPLACES all data currently on this device.`
+      );
+      if (!confirmed) return;
+      await applyBackup(json);
+      toast.success("Backup restored — reloading…");
+      setTimeout(() => window.location.reload(), 800);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Import failed");
+    } finally {
+      setRestoring(false);
     }
   };
 
@@ -391,11 +413,41 @@ export function SettingsPage() {
       <Card>
         <CardHeader><CardTitle>Data</CardTitle></CardHeader>
         <CardContent className="space-y-3">
+          <p className="text-xs text-slate-500">
+            Everything lives only on this device. Export a backup regularly and
+            keep a copy safe (email, USB drive, SD card) so a lost or replaced
+            phone does not erase your lesson plans.
+          </p>
+          <label className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300">
+            <input
+              type="checkbox"
+              checked={includeKeys}
+              onChange={(e) => setIncludeKeys(e.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-indigo-600"
+            />
+            <span>
+              Include AI API keys in the backup.
+              <span className="block text-xs text-slate-500">
+                Untick by default — only tick if the backup file will stay
+                private to you.
+              </span>
+            </span>
+          </label>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={exportBackup}>Export All Data (Backup)</Button>
-            <Button variant="outline" onClick={() => document.getElementById("backup-file")?.click()}>Import Backup</Button>
-            <input id="backup-file" type="file" accept="application/json,.json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) importBackup(f); e.target.value = ""; }} />
+            <Button variant="outline" onClick={exportBackup} disabled={exporting}>
+              {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Export All Data (Backup)
+            </Button>
+            <Button variant="outline" onClick={() => document.getElementById("backup-file")?.click()} disabled={restoring}>
+              {restoring ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Import Backup
+            </Button>
+            <input id="backup-file" type="file" accept="application/json,.json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void importBackup(f); e.target.value = ""; }} />
           </div>
+          <p className="text-xs text-slate-500">
+            Importing replaces everything currently on this device with the
+            contents of the backup file.
+          </p>
           <Button variant="destructive" onClick={handleClearAll}>
             <AlertTriangle className="h-4 w-4" /> Clear All Data
           </Button>

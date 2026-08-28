@@ -50,8 +50,7 @@ const FIELD_INSTRUCTIONS: Record<LessonField, string> = {
 export function buildGenerationPrompt(
   context: GenerationContext,
   fields: LessonField[]
-): string {
-  const contextLines = [
+): string {  const contextLines = [
     "Context:",
     `- Subject: ${context.subject}`,
     `- Class Level: ${context.classLevel}`,
@@ -81,6 +80,28 @@ Keep everything practical, simple and achievable in a ${context.classLevel} Came
 
   return userPrompt;
 }
+
+/**
+ * Full-lesson generation is split into sequential requests: the lesson notes
+ * are long (300-800 words) and get their own call, so one truncated response
+ * can no longer destroy the whole generation.
+ */
+export const LESSON_FIELD_GROUPS: LessonField[][] = [
+  [
+    "previousKnowledge",
+    "objectives",
+    "introduction",
+    "activities",
+    "materials",
+    "conclusion",
+    "homework",
+    "evaluationCriteria",
+    "differentiation"
+  ],
+  ["lessonNotes"]
+];
+
+export const ALL_LESSON_FIELDS: LessonField[] = LESSON_FIELD_GROUPS.flat();
 
 export function buildSystemPrompt(): string {
   return SYSTEM_PROMPT;
@@ -146,10 +167,13 @@ function repairJson(text: string): string {
   while (i < n) {
     const ch = out[i];
     if (ch === '"') {
-      // copy the whole double-quoted string verbatim
+      // copy the whole double-quoted string verbatim, fixing the invalid
+      // \' escape (JSON only allows \' to be a plain apostrophe)
       let j = i + 1;
       while (j < n && (out[j] !== '"' || out[j - 1] === "\\")) j++;
-      converted += out.slice(i, Math.min(j + 1, n));
+      converted += out
+        .slice(i, Math.min(j + 1, n))
+        .replace(/\\'/g, "'");
       i = j + 1;
       continue;
     }
@@ -158,7 +182,16 @@ function repairJson(text: string): string {
       let body = "";
       while (j < n) {
         if (out[j] === "\\" && j + 1 < n) {
-          body += out[j] + out[j + 1];
+          const next = out[j + 1];
+          if (next === "'") {
+            // \' inside a single-quoted string is just an apostrophe
+            body += "'";
+          } else if (next === '"') {
+            // a double quote needs escaping once re-quoted with double quotes
+            body += '\\"';
+          } else {
+            body += out[j] + next;
+          }
           j += 2;
           continue;
         }

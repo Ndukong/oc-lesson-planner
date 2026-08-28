@@ -57,7 +57,7 @@ export function ProgressionPage() {
             Progression Grid
           </h1>
           <p className="text-sm text-slate-500">
-            {subject?.name} · 36-week national progression · {classLevel}
+            {subject?.name} · 36-week progression · {classLevel}
           </p>
         </div>
         <Button

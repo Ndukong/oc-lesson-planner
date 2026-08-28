@@ -6,6 +6,7 @@ import type {
   SubjectTemplate,
   SyllabusModule
 } from "@/types";
+import { CLASS_LEVELS } from "@/types";
 import { downloadText } from "@/utils/format";
 
 export async function exportSubjectTemplate(
@@ -32,9 +33,7 @@ export async function exportSubjectTemplate(
 }
 
 export function isClassLevel(value: unknown): value is ClassLevel {
-  return typeof value === "string" && [
-    "Form 1", "Form 2", "Form 3", "Form 4", "Form 5"
-  ].includes(value);
+  return typeof value === "string" && (CLASS_LEVELS as readonly string[]).includes(value);
 }
 
 export function validateSubjectTemplate(
