@@ -1,4 +1,5 @@
-import { NavLink, Link } from "react-router-dom";
+import { useEffect } from "react";
+import { NavLink, Link, useLocation } from "react-router-dom";
 import {
   BookOpen,
   CalendarRange,
@@ -7,10 +8,12 @@ import {
   Home,
   Settings,
   Share2,
-  TrendingUp
+  TrendingUp,
+  X
 } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { useAppStore } from "@/stores/app-store";
+import { useUIStore } from "@/stores/ui-store";
 import { useSubjects } from "@/db/hooks";
 
 const NAV_ITEMS = [
@@ -23,21 +26,72 @@ const NAV_ITEMS = [
   { to: "/settings", label: "Settings", icon: Settings }
 ];
 
-export function Sidebar() {
+function SubjectClassControls() {
   const subjects = useSubjects();
   const { subjectId, classLevel, setSubject, setClassLevel } = useAppStore();
 
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r border-slate-200 bg-white md:flex dark:border-slate-800 dark:bg-slate-900">
-      <Link to="/" className="flex items-center gap-3 border-b border-slate-200 px-5 py-4 dark:border-slate-800">
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-white">
-          <GraduationCap className="h-6 w-6" />
-        </span>
-        <div>
-          <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Lesson Planner</p>
-          <p className="text-xs text-slate-500">MINESEC · CBA</p>
-        </div>
-      </Link>
+    <div className="space-y-3">
+      <div>
+        <label className="mb-1 block text-xs font-medium text-slate-500">Subject</label>
+        <select
+          value={subjectId}
+          onChange={(e) => {
+            const next = e.target.value;
+            setSubject(next);
+            const levels = (subjects ?? []).find((s) => s.id === next)?.classLevels;
+            if (levels && !levels.includes(classLevel)) setClassLevel(levels[0]);
+          }}
+          className="h-10 w-full rounded-lg border border-slate-300 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+          aria-label="Subject"
+        >
+          {(subjects ?? []).map((s) => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-medium text-slate-500">Class Level</label>
+        <select
+          value={classLevel}
+          onChange={(e) => setClassLevel(e.target.value as never)}
+          className="h-10 w-full rounded-lg border border-slate-300 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+          aria-label="Class Level"
+        >
+          {(subjects ?? [])
+            .find((s) => s.id === subjectId)
+            ?.classLevels.map((cl) => (
+              <option key={cl} value={cl}>{cl}</option>
+            ))}
+        </select>
+      </div>
+    </div>
+  );
+}
+
+function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
+  return (
+    <>
+      <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+        <Link to="/" onClick={onNavigate} className="flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-white">
+            <GraduationCap className="h-6 w-6" />
+          </span>
+          <div>
+            <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Lesson Planner</p>
+            <p className="text-xs text-slate-500">MINESEC · CBA</p>
+          </div>
+        </Link>
+        {onNavigate && (
+          <button
+            onClick={onNavigate}
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+            aria-label="Close menu"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        )}
+      </div>
 
       <nav className="flex-1 overflow-y-auto p-3">
         <ul className="space-y-1">
@@ -46,6 +100,7 @@ export function Sidebar() {
               <NavLink
                 to={to}
                 end={end}
+                onClick={onNavigate}
                 className={({ isActive }) =>
                   cn(
                     "flex min-h-[44px] items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
@@ -63,39 +118,71 @@ export function Sidebar() {
         </ul>
       </nav>
 
-      <div className="space-y-3 border-t border-slate-200 p-4 dark:border-slate-800">
-        <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500">Subject</label>
-          <select
-            value={subjectId}
-            onChange={(e) => {
-              const next = e.target.value;
-              setSubject(next);
-              const levels = (subjects ?? []).find((s) => s.id === next)?.classLevels;
-              if (levels && !levels.includes(classLevel)) setClassLevel(levels[0]);
-            }}
-            className="h-10 w-full rounded-lg border border-slate-300 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-950"
-          >
-            {(subjects ?? []).map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500">Class Level</label>
-          <select
-            value={classLevel}
-            onChange={(e) => setClassLevel(e.target.value as never)}
-            className="h-10 w-full rounded-lg border border-slate-300 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-950"
-          >
-            {(subjects ?? [])
-              .find((s) => s.id === subjectId)
-              ?.classLevels.map((cl) => (
-                <option key={cl} value={cl}>{cl}</option>
-              ))}
-          </select>
-        </div>
+      <div className="border-t border-slate-200 p-4 dark:border-slate-800">
+        <SubjectClassControls />
       </div>
-    </aside>
+    </>
+  );
+}
+
+function MobileSidebar() {
+  const open = useUIStore((s) => s.sidebarOpen);
+  const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
+  const location = useLocation();
+
+  // Close the drawer whenever the route changes.
+  useEffect(() => {
+    if (open) setSidebarOpen(false);
+  }, [location.pathname, open, setSidebarOpen]);
+
+  // Lock body scroll + close on Escape while open.
+  useEffect(() => {
+    if (!open) return;
+    const original = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSidebarOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = original;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open, setSidebarOpen]);
+
+  return (
+    <div
+      className={cn("fixed inset-0 z-50 md:hidden", !open && "pointer-events-none")}
+      aria-hidden={!open}
+    >
+      <div
+        onClick={() => setSidebarOpen(false)}
+        className={cn(
+          "absolute inset-0 bg-slate-900/50 transition-opacity duration-200",
+          open ? "opacity-100" : "opacity-0"
+        )}
+      />
+      <div
+        role="dialog"
+        aria-label="Menu"
+        className={cn(
+          "absolute inset-y-0 left-0 flex w-[300px] max-w-[85vw] flex-col bg-white shadow-xl transition-transform duration-200 dark:bg-slate-900",
+          open ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        <SidebarBody onNavigate={() => setSidebarOpen(false)} />
+      </div>
+    </div>
+  );
+}
+
+export function Sidebar() {
+  return (
+    <>
+      <aside className="hidden w-64 shrink-0 flex-col border-r border-slate-200 bg-white md:flex dark:border-slate-800 dark:bg-slate-900">
+        <SidebarBody />
+      </aside>
+      <MobileSidebar />
+    </>
   );
 }
