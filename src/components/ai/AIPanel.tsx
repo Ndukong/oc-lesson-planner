@@ -4,7 +4,7 @@ import { Check, Loader2, Sparkles, Wand2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { generateLessonContent } from "@/services/ai";
+import { generateLessonContent, generateLessonNotes } from "@/services/ai";
 import type { GenerationContext } from "@/services/ai/prompts";
 import { ALL_LESSON_FIELDS, LESSON_FIELD_GROUPS } from "@/services/ai/prompts";
 import { isAbortError } from "@/services/ai/retry";
@@ -87,6 +87,31 @@ export function AIPanel({
     }
   };
 
+  const runNotes = async (stepIndex: number): Promise<boolean> => {
+    if (!settings) return false;
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    setStepLabel(`Step ${stepIndex + 1} of ${LESSON_FIELD_GROUPS.length} — lesson notes…`);
+    setGenerating(true);
+    try {
+      const notes = await generateLessonNotes(settings, context, controller.signal);
+      setResult((prev) => ({ ...(prev ?? {}), lessonNotes: notes }));
+      setError(null);
+      return true;
+    } catch (err) {
+      if (!isAbortError(err)) {
+        const msg = err instanceof Error ? err.message : "Generation failed.";
+        setError(msg);
+        toast.error(msg);
+      }
+      return false;
+    } finally {
+      setGenerating(false);
+      setStepLabel(null);
+      controllerRef.current = null;
+    }
+  };
+
   const runGroups = async (groups: LessonField[][]) => {
     let succeeded = 0;
     for (let gi = 0; gi < groups.length; gi++) {
@@ -95,7 +120,10 @@ export function AIPanel({
         succeeded++;
         continue;
       }
-      const ok = await runFields(fields, gi);
+      const isNotesOnly = fields.length === 1 && fields[0] === "lessonNotes";
+      const ok = isNotesOnly
+        ? await runNotes(gi)
+        : await runFields(fields, gi);
       if (!ok) break;
       succeeded++;
     }

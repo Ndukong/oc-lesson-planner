@@ -28,7 +28,7 @@ import {
   useSyllabusModules,
   useTeacherProfile
 } from "@/db/hooks";
-import { generateLessonContent } from "@/services/ai";
+import { generateLessonContent, generateLessonNotes } from "@/services/ai";
 import type { GenerationContext } from "@/services/ai/prompts";
 import { exportLessonPlanPDF } from "@/services/export/pdf";
 import { exportLessonPlanDocx } from "@/services/export/docx";
@@ -184,6 +184,14 @@ export function LessonPlanEditor() {
   const handleGenerateField = async (field: LessonField) => {
     if (!settings || !context) return;
     try {
+      // Lesson notes are long markdown; generate them as plain text so they
+      // can never fail JSON parsing or get silently dropped.
+      if (field === "lessonNotes") {
+        const notes = await generateLessonNotes(settings, context);
+        patch({ lessonNotes: notes });
+        toast.success("Generated");
+        return;
+      }
       const res = await generateLessonContent(settings, context, [field]);
       applyResult(res, field);
       toast.success("Generated");

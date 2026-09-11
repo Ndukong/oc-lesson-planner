@@ -18,11 +18,17 @@ export interface GenerationContext {
   previousLessonTitle: string;
 }
 
-const SYSTEM_PROMPT = `You are an expert Cameroonian secondary school teacher using the Competence-Based Approach (CBA) as mandated by MINESEC.
+const TEACHER_ROLE = `You are an expert Cameroonian secondary school teacher using the Competence-Based Approach (CBA) as mandated by MINESEC.
 
-You generate lesson plan content that is practical and achievable in a Cameroonian secondary school classroom. Many schools lack electricity, running water, or a proper laboratory. Always use locally available materials (flashlights, tennis balls, cardboard, markers, string, rulers, empty bottles, stones, bicycle parts, phone chargers, mirrors, candles, matchboxes, rubber bands, plastic bags, etc.). Avoid expensive lab equipment unless the syllabus specifically requires it.
+You generate lesson plan content that is practical and achievable in a Cameroonian secondary school classroom. Many schools lack electricity, running water, or a proper laboratory. Always use locally available materials (flashlights, tennis balls, cardboard, markers, string, rulers, empty bottles, stones, bicycle parts, phone chargers, mirrors, candles, matchboxes, rubber bands, plastic bags, etc.). Avoid expensive lab equipment unless the syllabus specifically requires it.`;
+
+const SYSTEM_PROMPT = `${TEACHER_ROLE}
 
 Respond with JSON ONLY, using the exact keys requested. Do not wrap in markdown code fences.`;
+
+const NOTES_SYSTEM_PROMPT = `${TEACHER_ROLE}
+
+Respond with ONLY the plain markdown lesson notes. Do NOT use JSON, do NOT wrap the response in code fences, and do NOT add any explanation before or after the notes.`;
 
 const FIELD_INSTRUCTIONS: Record<LessonField, string> = {
   previousKnowledge:
@@ -47,10 +53,8 @@ const FIELD_INSTRUCTIONS: Record<LessonField, string> = {
     'differentiation: string — brief notes on adapting the lesson for slower and faster learners.'
 };
 
-export function buildGenerationPrompt(
-  context: GenerationContext,
-  fields: LessonField[]
-): string {  const contextLines = [
+function buildContextLines(context: GenerationContext): string[] {
+  return [
     "Context:",
     `- Subject: ${context.subject}`,
     `- Class Level: ${context.classLevel}`,
@@ -66,6 +70,12 @@ export function buildGenerationPrompt(
     `- Available Resources: ${context.otherResources}`,
     `- Previous Lesson: ${context.previousLessonTitle || "—"}`
   ];
+}
+
+export function buildGenerationPrompt(
+  context: GenerationContext,
+  fields: LessonField[]
+): string {  const contextLines = buildContextLines(context);
 
   const instruction = fields
     .map((f) => FIELD_INSTRUCTIONS[f])
@@ -105,6 +115,33 @@ export const ALL_LESSON_FIELDS: LessonField[] = LESSON_FIELD_GROUPS.flat();
 
 export function buildSystemPrompt(): string {
   return SYSTEM_PROMPT;
+}
+
+export function buildNotesSystemPrompt(): string {
+  return NOTES_SYSTEM_PROMPT;
+}
+
+/**
+ * Plain-markdown request for the lesson notes field. Returning the notes as
+ * raw text (not JSON) avoids the truncation/malformed-JSON failures that some
+ * providers hit with a long, newline-heavy string inside a JSON object.
+ */
+export function buildLessonNotesPrompt(context: GenerationContext): string {
+  const contextLines = buildContextLines(context);
+  return `${contextLines.join("\n")}
+
+Write the full lesson notes that learners will copy into their exercise books for this lesson.
+
+Requirements:
+- 300-800 words.
+- Clear headings with "## " prefix for each section.
+- Definitions in complete sentences.
+- Include key formulas, and describe any diagrams in text like "[Draw a circuit with a battery, switch and bulb in series]".
+- Include 2-3 worked examples if the topic is mathematical.
+- End with a "Summary:" section using "- " bullet points.
+- English only.
+
+Respond with ONLY the markdown lesson notes. Do NOT wrap them in JSON and do NOT use code fences.`;
 }
 
 /** Remove one or more markdown code fences (```json ... ```) from the text. */

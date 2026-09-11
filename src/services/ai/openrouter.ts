@@ -23,6 +23,7 @@ export async function generateWithOpenRouter(
     body: JSON.stringify({
       model,
       temperature: 0.7,
+      max_tokens: 4096,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }

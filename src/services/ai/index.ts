@@ -12,6 +12,8 @@ import {
 } from "@/services/ai/mistral";
 import {
   buildGenerationPrompt,
+  buildLessonNotesPrompt,
+  buildNotesSystemPrompt,
   buildSystemPrompt,
   extractJson
 } from "@/services/ai/prompts";
@@ -111,6 +113,47 @@ export async function generateLessonContent(
     throw new Error("AI returned an unexpected response shape.");
   }
   return parsed as Record<string, unknown>;
+}
+
+/** Strip a single outer code fence (``` … ```) only when it wraps the whole response. */
+function cleanLessonNotes(text: string): string {
+  const out = (text ?? "").trim();
+  const fence = /^```(?:json|markdown|md)?\s*([\s\S]*?)```\s*$/i;
+  const match = out.match(fence);
+  return match ? match[1].trim() : out;
+}
+
+/**
+ * Generate ONLY the lesson notes as plain markdown. This path never goes
+ * through JSON parsing, so a long, newline-heavy notes field cannot fail with
+ * a "could not be parsed as JSON" error or get silently dropped.
+ */
+export async function generateLessonNotes(
+  settings: AISettings,
+  context: Parameters<typeof buildLessonNotesPrompt>[0],
+  signal?: AbortSignal
+): Promise<string> {
+  const provider = settings.preferredProvider;
+  const cfg = PROVIDER_CONFIG[provider];
+  const apiKey = providerKey(settings, provider);
+
+  if (!apiKey) {
+    throw new Error(
+      `No ${provider} API key configured. Add one in Settings first.`
+    );
+  }
+
+  const raw = await cfg.generate(
+    apiKey,
+    buildNotesSystemPrompt(),
+    buildLessonNotesPrompt(context),
+    settings.modelPreference || cfg.defaultModel,
+    signal
+  );
+
+  const notes = cleanLessonNotes(raw);
+  if (!notes) throw new Error("AI returned empty lesson notes.");
+  return notes;
 }
 
 export async function testAIProvider(

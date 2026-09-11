@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   ALL_LESSON_FIELDS,
   buildGenerationPrompt,
+  buildLessonNotesPrompt,
+  buildNotesSystemPrompt,
   buildSystemPrompt,
   extractJson,
   LESSON_FIELD_GROUPS,
@@ -124,5 +126,27 @@ describe("buildSystemPrompt", () => {
     expect(sys).toContain("Competence-Based Approach");
     expect(sys).toContain("locally available materials");
     expect(sys).toContain("JSON ONLY");
+  });
+});
+
+describe("lesson notes plain-text path", () => {
+  it("uses a notes system prompt that never demands JSON", () => {
+    const sys = buildNotesSystemPrompt();
+    expect(sys).toContain("Competence-Based Approach");
+    expect(sys).not.toContain("JSON ONLY");
+    expect(sys).toContain("plain markdown");
+  });
+
+  it("requests notes as raw markdown, not a JSON object", () => {
+    const prompt = buildLessonNotesPrompt(CONTEXT);
+    expect(prompt).toContain("Subject: Physics");
+    expect(prompt).toContain("Core Knowledge from Syllabus: Laws of reflection.");
+    expect(prompt.toLowerCase()).toContain("only the markdown lesson notes");
+    expect(prompt).not.toContain("Generate the following JSON object");
+    expect(prompt).not.toContain('lessonNotes: string');
+  });
+
+  it("keeps lessonNotes in its own group so notes can never block other fields", () => {
+    expect(LESSON_FIELD_GROUPS[1]).toEqual(["lessonNotes"]);
   });
 });
