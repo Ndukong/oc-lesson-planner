@@ -1,7 +1,13 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { registerSW } from "virtual:pwa-register";
 import App from "./App";
 import "./index.css";
+
+// Register the service worker so the app installs/works offline. In
+// autoUpdate mode a freshly deployed version takes over and the page reloads
+// automatically — users are never stuck on a stale cached build.
+registerSW({ immediate: true });
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

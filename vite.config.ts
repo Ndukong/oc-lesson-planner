@@ -16,6 +16,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: "autoUpdate",
+      injectRegister: false,
       includeAssets: ["favicon.svg", "icons/icon-192x192.png", "icons/icon-512x512.png"],
       manifest: {
         name: "Lesson Planner",
