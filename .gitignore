@@ -29,6 +29,9 @@ npm-debug.log*
 # Reference source documents (syllabuses/progression sheets) — not needed at runtime
 samples/
 
+# Playwright MCP artifacts
+.playwright-mcp/
+
 # Exported lesson plans / backups accidentally saved into the repo root
 *-lesson-plan*.docx
 *-lesson-plan*.pdf
