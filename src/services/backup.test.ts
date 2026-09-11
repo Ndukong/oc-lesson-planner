@@ -111,18 +111,22 @@ describe("stripApiKeys", () => {
     const settings: AISettings[] = [
       {
         id: "default",
-        preferredProvider: "groq",
+        preferredProvider: "openrouter",
         groqApiKey: "gsk-secret",
         geminiApiKey: "AIza-secret",
-        modelPreference: "llama-3.3-70b-versatile",
+        openrouterApiKey: "sk-or-secret",
+        mistralApiKey: "mistral-secret",
+        modelPreference: "openrouter/free",
         autoGenerate: true
       }
     ];
     const [out] = stripApiKeys(settings);
     expect(out.geminiApiKey).toBeUndefined();
     expect(out.groqApiKey).toBeUndefined();
-    expect(out.preferredProvider).toBe("groq");
-    expect(out.modelPreference).toBe("llama-3.3-70b-versatile");
+    expect(out.openrouterApiKey).toBeUndefined();
+    expect(out.mistralApiKey).toBeUndefined();
+    expect(out.preferredProvider).toBe("openrouter");
+    expect(out.modelPreference).toBe("openrouter/free");
     expect(out.autoGenerate).toBe(true);
   });
 });

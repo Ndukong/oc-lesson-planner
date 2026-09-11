@@ -21,7 +21,7 @@ export type LessonStatus =
   | "partial";
 
 export type PeriodType = "single" | "double";
-export type AIProvider = "gemini" | "groq";
+export type AIProvider = "gemini" | "groq" | "openrouter" | "mistral";
 
 export interface Subject {
   id: string;
@@ -140,10 +140,19 @@ export interface AISettings {
   id: string;
   geminiApiKey?: string;
   groqApiKey?: string;
+  openrouterApiKey?: string;
+  mistralApiKey?: string;
   preferredProvider: AIProvider;
   autoGenerate: boolean;
   modelPreference?: string;
 }
+
+export const PROVIDER_LABELS: Record<AIProvider, string> = {
+  gemini: "Gemini",
+  groq: "Groq",
+  openrouter: "OpenRouter",
+  mistral: "Mistral"
+};
 
 export interface WeekInfo {
   week: number;

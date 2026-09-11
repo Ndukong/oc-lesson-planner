@@ -50,7 +50,9 @@ export function stripApiKeys(settings: AISettings[]): AISettings[] {
   return settings.map((s) => ({
     ...s,
     geminiApiKey: undefined,
-    groqApiKey: undefined
+    groqApiKey: undefined,
+    openrouterApiKey: undefined,
+    mistralApiKey: undefined
   }));
 }
 
@@ -156,7 +158,9 @@ export function validateBackup(json: unknown):
   const includesApiKeys = ((data.aiSettings ?? []) as AISettings[]).some(
     (s) =>
       (typeof s.geminiApiKey === "string" && s.geminiApiKey.length > 0) ||
-      (typeof s.groqApiKey === "string" && s.groqApiKey.length > 0)
+      (typeof s.groqApiKey === "string" && s.groqApiKey.length > 0) ||
+      (typeof s.openrouterApiKey === "string" && s.openrouterApiKey.length > 0) ||
+      (typeof s.mistralApiKey === "string" && s.mistralApiKey.length > 0)
   );
   const counts = {} as Record<BackupTableName, number>;
   for (const table of BACKUP_TABLES) {

@@ -14,7 +14,7 @@ import {
 } from "@/db/hooks";
 import { rebuildProgressionForCalendar } from "@/db/seed";
 import { db } from "@/db/database";
-import { listAvailableModels, testAIProvider } from "@/services/ai";
+import { listAvailableModels, testAIProvider, DEFAULT_MODEL_BY_PROVIDER } from "@/services/ai";
 import type { AIModelOption } from "@/services/ai";
 import {
   applyBackup,
@@ -23,12 +23,10 @@ import {
   validateBackup
 } from "@/services/backup";
 import { useUIStore } from "@/stores/ui-store";
-import { GEMINI_DEFAULT_MODEL } from "@/services/ai/gemini";
-import { GROQ_DEFAULT_MODEL } from "@/services/ai/groq";
 import { toDateInputValue } from "@/utils/format";
 import { holidayWeeksFromDates, weekEndDate, weekStartDate } from "@/utils/calendar";
-import { APP_VERSION } from "@/types";
-import type { AISettings, Holiday, TeacherProfile } from "@/types";
+import { APP_VERSION, PROVIDER_LABELS } from "@/types";
+import type { AISettings, AIProvider, Holiday, TeacherProfile } from "@/types";
 import { cn } from "@/utils/cn";
 
 export function SettingsPage() {
@@ -42,8 +40,10 @@ export function SettingsPage() {
   const [region, setRegion] = useState("");
   const [geminiKey, setGeminiKey] = useState("");
   const [groqKey, setGroqKey] = useState("");
+  const [openrouterKey, setOpenrouterKey] = useState("");
+  const [mistralKey, setMistralKey] = useState("");
   const [provider, setProvider] = useState<AISettings["preferredProvider"]>("gemini");
-  const [model, setModel] = useState(GEMINI_DEFAULT_MODEL);
+  const [model, setModel] = useState(DEFAULT_MODEL_BY_PROVIDER.gemini);
   const [autoGenerate, setAutoGenerate] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [academicYear, setAcademicYear] = useState("");
@@ -77,13 +77,15 @@ export function SettingsPage() {
     if (settings) {
       setGeminiKey(settings.geminiApiKey ?? "");
       setGroqKey(settings.groqApiKey ?? "");
+      setOpenrouterKey(settings.openrouterApiKey ?? "");
+      setMistralKey(settings.mistralApiKey ?? "");
       setProvider(settings.preferredProvider ?? "gemini");
-      setModel(settings.modelPreference ?? GEMINI_DEFAULT_MODEL);
+      setModel(settings.modelPreference ?? DEFAULT_MODEL_BY_PROVIDER[settings.preferredProvider ?? "gemini"]);
       setAutoGenerate(settings.autoGenerate ?? false);
       // Populate the model list for the saved provider if a key is stored.
       const p = settings.preferredProvider ?? "gemini";
-      const key = p === "gemini" ? settings.geminiApiKey : settings.groqApiKey;
-      if (key) refreshModels(p, key, settings.modelPreference ?? (p === "gemini" ? GEMINI_DEFAULT_MODEL : GROQ_DEFAULT_MODEL));
+      const key = keyFor(p);
+      if (key) refreshModels(p, key, settings.modelPreference ?? DEFAULT_MODEL_BY_PROVIDER[p]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings]);
@@ -119,12 +121,21 @@ export function SettingsPage() {
     toast.success("Profile saved");
   };
 
+  const keyFor = (p: AIProvider): string => {
+    if (p === "gemini") return geminiKey;
+    if (p === "groq") return groqKey;
+    if (p === "openrouter") return openrouterKey;
+    return mistralKey;
+  };
+
   const saveAi = async () => {
     if (!settings) return;
     await saveAISettings({
       ...settings,
       geminiApiKey: geminiKey || undefined,
       groqApiKey: groqKey || undefined,
+      openrouterApiKey: openrouterKey || undefined,
+      mistralApiKey: mistralKey || undefined,
       preferredProvider: provider,
       modelPreference: model,
       autoGenerate
@@ -136,19 +147,19 @@ export function SettingsPage() {
     if (!settings) return;
     setTesting(true);
     setTestResult(null);
-    const res = await testAIProvider({ ...settings, geminiApiKey: geminiKey, groqApiKey: groqKey, preferredProvider: provider, modelPreference: model });
+    const res = await testAIProvider({ ...settings, geminiApiKey: geminiKey, groqApiKey: groqKey, openrouterApiKey: openrouterKey, mistralApiKey: mistralKey, preferredProvider: provider, modelPreference: model });
     setTestResult(res);
     setTesting(false);
   };
 
   const refreshModels = async (
     p: AISettings["preferredProvider"] = provider,
-    key: string = p === "gemini" ? geminiKey : groqKey,
+    key: string = keyFor(p),
     currentModel: string = model
   ) => {
     if (!key) {
       setModels([]);
-      setModelsError(`Enter your ${p === "gemini" ? "Gemini" : "Groq"} API key, then refresh.`);
+      setModelsError(`Enter your ${PROVIDER_LABELS[p]} API key, then refresh.`);
       return;
     }
     setModelsLoading(true);
@@ -157,7 +168,7 @@ export function SettingsPage() {
       const list = await listAvailableModels(p, key);
       setModels(list);
       if (!list.some((m) => m.id === currentModel)) {
-        setModel(list[0]?.id ?? (p === "gemini" ? GEMINI_DEFAULT_MODEL : GROQ_DEFAULT_MODEL));
+        setModel(list[0]?.id ?? DEFAULT_MODEL_BY_PROVIDER[p]);
       }
       if (list.length === 0) {
         setModelsError("No free-tier models found for this key.");
@@ -172,7 +183,7 @@ export function SettingsPage() {
 
   // Refresh models whenever the provider changes (if a key is already saved).
   useEffect(() => {
-    const key = provider === "gemini" ? geminiKey : groqKey;
+    const key = keyFor(provider);
     if (!key) {
       setModels([]);
       return;
@@ -297,18 +308,24 @@ export function SettingsPage() {
           <p className="text-xs text-slate-500">
             Your API keys are stored only on this device (IndexedDB) and are
             sent only to the AI provider when you generate. Get free keys from{" "}
-            <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="text-indigo-600">Google AI Studio</a>{" "}
+            <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="text-indigo-600">Google AI Studio</a>,{" "}
+            <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" className="text-indigo-600">Groq</a>,{" "}
+            <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer" className="text-indigo-600">OpenRouter</a>{" "}
             or{" "}
-            <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" className="text-indigo-600">Groq</a>.
+            <a href="https://console.mistral.ai" target="_blank" rel="noreferrer" className="text-indigo-600">Mistral</a>.
           </p>
           <div><Label>Gemini API key</Label><Input type="password" value={geminiKey} onChange={(e) => setGeminiKey(e.target.value)} placeholder="AIza..." /></div>
           <div><Label>Groq API key</Label><Input type="password" value={groqKey} onChange={(e) => setGroqKey(e.target.value)} placeholder="gsk_..." /></div>
+          <div><Label>OpenRouter API key</Label><Input type="password" value={openrouterKey} onChange={(e) => setOpenrouterKey(e.target.value)} placeholder="sk-or-..." /></div>
+          <div><Label>Mistral API key</Label><Input type="password" value={mistralKey} onChange={(e) => setMistralKey(e.target.value)} placeholder="..." /></div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <Label>Preferred provider</Label>
-              <Select value={provider} onChange={(e) => { setProvider(e.target.value as never); setModel(e.target.value === "gemini" ? GEMINI_DEFAULT_MODEL : GROQ_DEFAULT_MODEL); }}>
+              <Select value={provider} onChange={(e) => { const next = e.target.value as AIProvider; setProvider(next); setModel(DEFAULT_MODEL_BY_PROVIDER[next]); }}>
                 <option value="gemini">Gemini</option>
                 <option value="groq">Groq</option>
+                <option value="openrouter">OpenRouter</option>
+                <option value="mistral">Mistral</option>
               </Select>
             </div>
             <div>
@@ -338,7 +355,7 @@ export function SettingsPage() {
           </div>
           <p className="text-xs text-slate-500">
             Tap the refresh icon to load the current list of available (free-tier)
-            models from {provider === "gemini" ? "Google Gemini" : "Groq"} using your API key.
+            models from {PROVIDER_LABELS[provider]} using your API key.
             {modelsError && (
               <span className="ml-1 text-amber-600 dark:text-amber-400">{modelsError}</span>
             )}

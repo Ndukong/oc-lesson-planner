@@ -79,7 +79,24 @@ AI generation is **optional**. You can write every lesson by hand if you prefer.
 3. Click **Create API Key**.
 4. Copy the key — it looks like `gsk_…`
 
-> **Note:** Your API key is stored **only on your own device** and is sent only to the AI provider when you generate. Keep it private, like a password.
+### Option C — OpenRouter
+
+One free account gives you many models to choose from (the app lists only the currently free ones). Free models are rate-limited (about 20 requests/minute) — plenty for planning a few lessons.
+
+1. Go to **https://openrouter.ai/keys**
+2. Create a free account (no credit card needed).
+3. Click **Keys** → **Create Key**, name it e.g. "lesson-planner", then copy it.
+4. Copy the key — it looks like `sk-or-…`
+
+### Option D — Mistral
+
+Mistral's free tier offers a very generous monthly token allowance.
+
+1. Go to **https://console.mistral.ai**
+2. Sign up (no credit card needed).
+3. Open **API Keys** → **Create new key**, then copy it.
+
+> **Note:** Your API key is stored **only on your own device** and is sent only to the AI provider when you generate. Keep it private, like a password. Free models (e.g. some on OpenRouter) may use your prompts to improve their services, so avoid typing students' names or phone numbers into AI-generated fields.
 
 ---
 
@@ -97,7 +114,7 @@ Update your name, school and region, then tap **Save Profile**.
 |---------|------------|
 | Gemini API key | Paste your Gemini key (from Section 3, Option A). |
 | Groq API key | Paste your Groq key (from Section 3, Option B). |
-| Preferred provider | Choose Gemini or Groq (the one whose key you entered). |
+| Preferred provider | Choose Gemini, Groq, OpenRouter or Mistral (the one whose key you entered). |
 | Model | Tap the **⟳ refresh** button to load the current list of free-tier models, then pick one. |
 | Auto-generate | Optional: tick this to auto-draft a full lesson whenever you open a new week. |
 
