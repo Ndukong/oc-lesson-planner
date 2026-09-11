@@ -130,10 +130,12 @@ function MobileSidebar() {
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
   const location = useLocation();
 
-  // Close the drawer whenever the route changes.
+  // Close the drawer whenever the route changes (not when `open` changes —
+  // that would immediately re-close the drawer as soon as it is toggled open).
+  const pathname = location.pathname;
   useEffect(() => {
-    if (open) setSidebarOpen(false);
-  }, [location.pathname, open, setSidebarOpen]);
+    setSidebarOpen(false);
+  }, [pathname, setSidebarOpen]);
 
   // Lock body scroll + close on Escape while open.
   useEffect(() => {
