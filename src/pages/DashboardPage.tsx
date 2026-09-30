@@ -43,35 +43,44 @@ export function DashboardPage() {
   const { week, sequence, term } = useCurrentWeek();
   const navigate = useNavigate();
 
-  const currentEntry = useMemo(
-    () => progression?.find((e) => e.weekNumber === week),
-    [progression, week]
-  );
+  const currentEntry = useMemo(() => {
+    if (!progression?.length) return undefined;
+    const byPeriod = progression.filter((e) => e.weekPeriod);
+    if (!byPeriod.length) return progression[0];
+    const today = new Date();
+    const parse = (s: string) => {
+      const m = s.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+      return m ? new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1])).getTime() : 0;
+    };
+    let best = byPeriod[0];
+    let bestDist = Infinity;
+    for (const e of byPeriod) {
+      const t = parse(e.weekPeriod);
+      const d = Math.abs(t - today.getTime());
+      if (d < bestDist) {
+        bestDist = d;
+        best = e;
+      }
+    }
+    return best;
+  }, [progression]);
 
-  const completedCount = useMemo(
-    () => plans?.filter((p) => p.status === "completed").length ?? 0,
-    [plans]
-  );
-
-  const totalCount = useMemo(
-    () => plans?.length ?? 0,
-    [plans]
-  );
-
-  const currentPlan = useMemo(
-    () => plans?.find((p) => p.weekNumber === week),
-    [plans, week]
-  );
-
+  const completedCount = useMemo(() => plans?.filter((p) => p.status === "completed").length ?? 0, [plans]);
+  const totalCount = useMemo(() => plans?.length ?? 0, [plans]);
+  const currentPlan = useMemo(() => {
+    if (!currentEntry) return undefined;
+    const ln = (currentEntry as unknown as { lessonNumber: number }).lessonNumber;
+    return plans?.find((p) => ((p as unknown as { lessonNumber: number }).lessonNumber ?? p.weekNumber) === ln);
+  }, [plans, currentEntry]);
   const behind = useMemo(() => {
     const rows = progression ?? [];
-    const plannedWeeks = new Set((plans ?? []).map((p) => p.weekNumber));
-    const last = rows.filter((r) => plannedWeeks.has(r.weekNumber)).pop();
+    if (!rows.length) return 0;
+    const planned = new Set((plans ?? []).map((p) => (p as unknown as { lessonNumber: number }).lessonNumber ?? p.weekNumber));
+    const lessons = rows.filter((r) => planned.has((r as unknown as { lessonNumber: number }).lessonNumber));
+    const last = lessons[lessons.length - 1];
     if (!last) return 0;
-    const lastProg = rows.find((r) => r.weekNumber === last.weekNumber);
-    if (!lastProg || lastProg.isHoliday) return 0;
-    return week - last.weekNumber;
-  }, [progression, plans, week]);
+    return Math.max(0, rows.length - lessons.length);
+  }, [progression, plans]);
 
   const daysEval = calendar ? daysUntilEvaluation(week, calendar) : null;
   const info = calendar ? weekInfo(week, calendar) : null;
@@ -188,54 +197,37 @@ export function DashboardPage() {
               className="bg-white/15 text-white hover:bg-white/25"
               onClick={() =>
                 navigate(
-                  currentEntry && !currentEntry.isHoliday
-                    ? `/lesson-plan/${subjectId}/${classLevel}/${week}`
+                  currentEntry
+                    ? `/lesson-plan/${subjectId}/${classLevel}/${(currentEntry as unknown as { lessonNumber: number }).lessonNumber}`
                     : "/progression"
                 )
               }
             >
               <PlayCircle className="h-4 w-4" />
-              {currentEntry && !currentEntry.isHoliday
-                ? "Plan This Week"
-                : "View Progression"}
+              {currentEntry ? "Plan Current Lesson" : "View Progression"}
             </Button>
-            <Button
-              variant="ghost"
-              className="text-white hover:bg-white/15"
-              onClick={() => navigate("/export")}
-            >
+            <Button variant="ghost" className="text-white hover:bg-white/15" onClick={() => navigate("/export")}>
               <FileDown className="h-4 w-4" /> Export
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      {currentEntry && !currentEntry.isHoliday && !currentEntry.isEvaluation && (
+      {currentEntry && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CalendarCheck2 className="h-4 w-4 text-indigo-600" />
-              This Week's Lesson
+              Current Lesson · {currentEntry.weekPeriod} · L{(currentEntry as unknown as { lessonNumber: number }).lessonNumber}
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="font-medium text-slate-900 dark:text-slate-100">
-                {currentEntry.lessonTitle}
-              </p>
-              <p className="text-sm text-slate-500">
-                {currentEntry.moduleName} · {currentEntry.chapter}
-              </p>
+              <p className="font-medium text-slate-900 dark:text-slate-100">{currentEntry.lessonTitle}</p>
+              <p className="text-sm text-slate-500">{currentEntry.moduleName} · {currentEntry.chapter}</p>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                navigate(`/lesson-plan/${subjectId}/${classLevel}/${week}`)
-              }
-            >
-              {currentPlan ? "Open plan" : "Create plan"}
-              <ArrowRight className="h-4 w-4" />
+            <Button variant="outline" size="sm" onClick={() => navigate(`/lesson-plan/${subjectId}/${classLevel}/${(currentEntry as unknown as { lessonNumber: number }).lessonNumber}`)}>
+              {currentPlan ? "Open plan" : "Create plan"} <ArrowRight className="h-4 w-4" />
             </Button>
           </CardContent>
         </Card>

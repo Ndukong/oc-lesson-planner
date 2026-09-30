@@ -49,24 +49,24 @@ export function ExportPage() {
       const [a, b] = weekRangeForTerm(term);
       return Array.from({ length: b - a + 1 }, (_, i) => a + i);
     }
-    return Array.from(
-      { length: endWeek - startWeek + 1 },
-      (_, i) => startWeek + i
-    );
+    return Array.from({ length: endWeek - startWeek + 1 }, (_, i) => startWeek + i);
   }, [rangeMode, week, sequence, term, startWeek, endWeek]);
 
-  const inRange = useMemo(() => {
-    const rows = (progression ?? []).filter(
-      (e) => weekNumbers.includes(e.weekNumber) && !e.isHoliday
-    );
-    const byWeek: Record<number, (typeof rows)[number]> = {};
-    for (const r of rows) byWeek[r.weekNumber] = r;
-    return byWeek;
-  }, [progression, weekNumbers]);
+  const lessonNumbers = useMemo(() => {
+    const rows = progression ?? [];
+    if (rangeMode === "week") return rows.filter((e) => weekNumbers.includes(e.weekNumber)).map((e) => e.lessonNumber);
+    if (rangeMode === "sequence") return rows.filter((e) => e.sequence === sequence).map((e) => e.lessonNumber);
+    if (rangeMode === "term") return rows.filter((e) => e.term === term).map((e) => e.lessonNumber);
+    const [a, b] = [Math.min(startWeek, endWeek), Math.max(startWeek, endWeek)];
+    return rows.filter((e) => e.lessonNumber >= a && e.lessonNumber <= b).map((e) => e.lessonNumber);
+  }, [progression, rangeMode, weekNumbers, sequence, term, startWeek, endWeek]);
 
-  const availablePlans: LessonPlan[] = useMemo(() => {
-    return (plans ?? []).filter((p) => inRange[p.weekNumber]);
-  }, [plans, inRange]);
+  const inRange = useMemo(() => {
+    const set = new Set(lessonNumbers);
+    return (p: LessonPlan) => set.has((p as unknown as { lessonNumber: number }).lessonNumber ?? p.weekNumber);
+  }, [lessonNumbers]);
+
+  const availablePlans: LessonPlan[] = useMemo(() => (plans ?? []).filter(inRange), [plans, inRange]);
 
   const toggle = (id: string) => {
     setSelected((prev) => {
@@ -238,12 +238,8 @@ export function ExportPage() {
                       className="h-4 w-4 accent-indigo-600"
                     />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-200">
-                        Week {p.weekNumber}: {p.topic}
-                      </p>
-                      <p className="truncate text-xs text-slate-500">
-                        {p.module} · {p.duration} min
-                      </p>
+                      <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-200">L{(p as unknown as { lessonNumber: number }).lessonNumber ?? p.weekNumber}: {p.topic}</p>
+                      <p className="truncate text-xs text-slate-500">{p.module} · {(p as unknown as { weekPeriod: string }).weekPeriod ?? ""} · {p.duration} min</p>
                     </div>
                     <Badge className={STATUS_COLORS[p.status]}>
                       {STATUS_LABELS[p.status]}

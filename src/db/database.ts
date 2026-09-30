@@ -24,9 +24,9 @@ export const db = new Dexie("LessonPlannerDB_v2") as Dexie & {
 const STORES = {
   subjects: "id, name",
   syllabusModules: "id, subjectId, classLevel, moduleNumber",
-  progressionEntries: "id, subjectId, classLevel, weekNumber, term, sequence",
+  progressionEntries: "id, subjectId, classLevel, lessonNumber, periodIndex, weekNumber, term, sequence",
   schoolCalendars: "id, academicYear",
-  lessonPlans: "id, subjectId, classLevel, weekNumber, status, [subjectId+classLevel+weekNumber]",
+  lessonPlans: "id, subjectId, classLevel, lessonNumber, weekNumber, status, [subjectId+classLevel+lessonNumber]",
   aiSettings: "id",
   teacherProfile: "id"
 };
@@ -83,3 +83,4 @@ db.version(3)
   });
 
 db.version(4).stores(STORES);
+db.version(5).stores(STORES);

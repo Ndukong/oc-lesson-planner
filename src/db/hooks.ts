@@ -46,8 +46,8 @@ export function useProgression(
     return db.progressionEntries
       .where("subjectId")
       .equals(subjectId)
-      .and((e) => e.classLevel === classLevel && e.weekNumber <= 36)
-      .sortBy("weekNumber");
+      .and((e) => e.classLevel === classLevel)
+      .sortBy("lessonNumber");
   }, [subjectId, classLevel]);
 }
 export function useProgressionAll(
@@ -60,7 +60,7 @@ export function useProgressionAll(
       .where("subjectId")
       .equals(subjectId)
       .and((e) => e.classLevel === classLevel)
-      .sortBy("weekNumber");
+      .sortBy("lessonNumber");
   }, [subjectId, classLevel]);
 }
 export function useOverflowLessons(
@@ -69,11 +69,22 @@ export function useOverflowLessons(
 ): ProgressionEntry[] | undefined {
   return useLiveQuery(async () => {
     if (!subjectId || !classLevel) return [];
-    return db.progressionEntries
+    return [];
+  }, [subjectId, classLevel]);
+}
+export function useProgressionByPeriod(
+  subjectId?: string,
+  classLevel?: ClassLevel
+): import("@/types").ProgressionPeriodGroup[] | undefined {
+  return useLiveQuery(async () => {
+    if (!subjectId || !classLevel) return [];
+    const entries = await db.progressionEntries
       .where("subjectId")
       .equals(subjectId)
-      .and((e) => e.classLevel === classLevel && e.weekNumber > 36)
-      .sortBy("weekNumber");
+      .and((e) => e.classLevel === classLevel)
+      .sortBy("lessonNumber");
+    const { groupProgressionByPeriod } = await import("@/db/seed-builder");
+    return groupProgressionByPeriod(entries as ProgressionEntry[]);
   }, [subjectId, classLevel]);
 }
 
@@ -89,6 +100,19 @@ export function useLessonPlan(
       .and((p) => p.classLevel === classLevel && p.weekNumber === weekNumber)
       .first()
   , [subjectId, classLevel, weekNumber]);
+}
+export function useLessonPlanByLesson(
+  subjectId: string,
+  classLevel: ClassLevel,
+  lessonNumber: number
+): LessonPlan | undefined {
+  return useLiveQuery(() =>
+    db.lessonPlans
+      .where("subjectId")
+      .equals(subjectId)
+      .and((p) => p.classLevel === classLevel && (p as LessonPlan).lessonNumber === lessonNumber)
+      .first()
+  , [subjectId, classLevel, lessonNumber]);
 }
 
 export function useLessonPlans(
@@ -134,31 +158,50 @@ export async function getOrCreateLessonPlan(
   classLevel: ClassLevel,
   weekNumber: number
 ): Promise<LessonPlan> {
+  const lessonNumber = weekNumber;
   const existing = await db.lessonPlans
     .where("subjectId")
     .equals(subjectId)
-    .and((p) => p.classLevel === classLevel && p.weekNumber === weekNumber)
+    .and((p) => p.classLevel === classLevel && ((p as LessonPlan).lessonNumber ?? p.weekNumber) === lessonNumber)
     .first();
-  if (existing) return existing;
+  if (existing) {
+    if ((existing as LessonPlan).lessonNumber == null) {
+      (existing as LessonPlan).lessonNumber = existing.weekNumber;
+      await db.lessonPlans.put(existing as LessonPlan);
+    }
+    return existing as LessonPlan;
+  }
 
   const prog = await db.progressionEntries
     .where("subjectId")
     .equals(subjectId)
-    .and((p) => p.classLevel === classLevel && p.weekNumber === weekNumber)
-    .first();
+    .and((p) => p.classLevel === classLevel && (p as ProgressionEntry).lessonNumber === lessonNumber)
+    .first() as ProgressionEntry | undefined;
+
+  const fallbackProg = !prog
+    ? await db.progressionEntries
+        .where("subjectId")
+        .equals(subjectId)
+        .and((p) => p.classLevel === classLevel && p.weekNumber === weekNumber)
+        .first() as ProgressionEntry | undefined
+    : undefined;
+  const effective = prog ?? fallbackProg;
 
   const now = new Date();
   const newPlan: LessonPlan = {
     id: uid("lp-"),
     subjectId,
     classLevel,
-    weekNumber,
+    weekNumber: effective?.weekNumber ?? weekNumber,
+    lessonNumber: effective?.lessonNumber ?? lessonNumber,
+    periodIndex: effective?.periodIndex ?? 0,
+    weekPeriod: effective?.weekPeriod ?? "",
     date: undefined,
-    term: prog?.term ?? 1,
-    sequence: prog?.sequence ?? 1,
-    module: prog?.moduleName ?? "",
-    chapter: prog?.chapter ?? "",
-    topic: prog?.lessonTitle ?? "",
+    term: effective?.term ?? 1,
+    sequence: effective?.sequence ?? 1,
+    module: effective?.moduleName ?? "",
+    chapter: effective?.chapter ?? "",
+    topic: effective?.lessonTitle ?? "",
     subtopics: [],
     previousKnowledge: "",
     objectives: [],
@@ -171,9 +214,9 @@ export async function getOrCreateLessonPlan(
     evaluationCriteria: [],
     crossCuttingCompetencies: [],
     differentiation: "",
-    duration: prog?.duration ? (prog.duration >= 2 ? 90 : 45) : 45,
-    periodType: prog?.duration && prog.duration >= 2 ? "double" : "single",
-    numberOfPeriods: prog?.duration ?? 1,
+    duration: effective?.duration ? (effective.duration >= 2 ? 90 : 45) : 45,
+    periodType: effective?.duration && effective.duration >= 2 ? "double" : "single",
+    numberOfPeriods: effective?.duration ?? 1,
     status: "planned",
     teacherReflection: "",
     attendanceNote: "",
@@ -183,6 +226,20 @@ export async function getOrCreateLessonPlan(
   };
   await db.lessonPlans.add(newPlan);
   return newPlan;
+}
+
+export async function getOrCreateLessonPlanByLesson(
+  subjectId: string,
+  classLevel: ClassLevel,
+  lessonNumber: number
+): Promise<LessonPlan> {
+  const existing = await db.lessonPlans
+    .where("subjectId")
+    .equals(subjectId)
+    .and((p) => p.classLevel === classLevel && ((p as LessonPlan).lessonNumber ?? p.weekNumber) === lessonNumber)
+    .first();
+  if (existing) return existing as LessonPlan;
+  return getOrCreateLessonPlan(subjectId, classLevel, lessonNumber);
 }
 
 export async function deleteLessonPlan(id: string): Promise<void> {

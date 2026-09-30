@@ -12,7 +12,7 @@ import {
   useSubject
 } from "@/db/hooks";
 import { useAppStore } from "@/stores/app-store";
-import { useCurrentWeek } from "@/hooks/useCurrentWeek";
+
 import { downloadText } from "@/utils/format";
 import { cn } from "@/utils/cn";
 import toast from "react-hot-toast";
@@ -30,56 +30,33 @@ export function ProgressPage() {
   const subject = useSubject(subjectId);
   const progression = useProgression(subjectId, classLevel);
   const plans = useLessonPlans(subjectId, classLevel);
-  const { week } = useCurrentWeek();
   const navigate = useNavigate();
 
-  const statusByWeek = useMemo(() => {
+  const statusByLesson = useMemo(() => {
     const map: Record<number, LessonStatus> = {};
-    for (const p of plans ?? []) map[p.weekNumber] = p.status;
+    for (const p of plans ?? []) map[(p as unknown as { lessonNumber: number }).lessonNumber ?? p.weekNumber] = p.status;
     return map;
   }, [plans]);
-
-  const teachingWeeks = useMemo(
-    () => (progression ?? []).filter((e) => !e.isHoliday),
-    [progression]
-  );
-
-  const completed = teachingWeeks.filter(
-    (e) => statusByWeek[e.weekNumber] === "completed"
-  ).length;
-  const total = teachingWeeks.length;
-
-  const sequenceStats = useMemo(() => {
-    return [1, 2, 3, 4, 5, 6].map((seq) => {
-      const weeks = teachingWeeks.filter((e) => e.sequence === seq);
-      const done = weeks.filter(
-        (e) => statusByWeek[e.weekNumber] === "completed"
-      ).length;
-      return { seq, total: weeks.length, done };
-    });
-  }, [teachingWeeks, statusByWeek]);
-
+  const teaching = useMemo(() => (progression ?? []).filter((e) => !e.isHoliday), [progression]);
+  const completed = teaching.filter((e) => statusByLesson[e.lessonNumber] === "completed").length;
+  const total = teaching.length;
+  const sequenceStats = useMemo(() => [1, 2, 3, 4, 5, 6].map((seq) => {
+    const weeks = teaching.filter((e) => e.sequence === seq);
+    const done = weeks.filter((e) => statusByLesson[e.lessonNumber] === "completed").length;
+    return { seq, total: weeks.length, done };
+  }), [teaching, statusByLesson]);
   const behindWeeks = useMemo(() => {
-    const planned = new Set((plans ?? []).map((p) => p.weekNumber));
-    return Math.max(0, week - Math.max(...planned, 0));
-  }, [plans, week]);
-
+    const planned = new Set((plans ?? []).map((p) => (p as unknown as { lessonNumber: number }).lessonNumber ?? p.weekNumber));
+    const done = teaching.filter((e) => planned.has(e.lessonNumber)).length;
+    return Math.max(0, total - done);
+  }, [plans, teaching, total]);
   const exportReport = () => {
-    const lines = [
-      `Progress Report — ${subject?.name} ${classLevel}`,
-      `Generated: ${new Date().toLocaleString()}`,
-      "",
-      `Completed: ${completed}/${total} (${total ? Math.round((completed / total) * 100) : 0}%)`,
-      "",
-      "Sequence breakdown:"
-    ];
-    for (const s of sequenceStats) {
-      lines.push(`  Sequence ${s.seq}: ${s.done}/${s.total} lessons completed`);
-    }
-    lines.push("", "Week-by-week:");
+    const lines = [`Progress Report — ${subject?.name} ${classLevel}`, `Generated: ${new Date().toLocaleString()}`, "", `Completed: ${completed}/${total} (${total ? Math.round((completed / total) * 100) : 0}%)`, "", "Sequence breakdown:"];
+    for (const s of sequenceStats) lines.push(`  Sequence ${s.seq}: ${s.done}/${s.total} lessons completed`);
+    lines.push("", "Lesson-by-lesson:");
     for (const e of progression ?? []) {
-      const st = e.isHoliday ? "holiday" : statusByWeek[e.weekNumber] ?? "unplanned";
-      lines.push(`  Week ${e.weekNumber}: ${e.lessonTitle} — ${st}`);
+      const st = e.isHoliday ? "holiday" : statusByLesson[e.lessonNumber] ?? "unplanned";
+      lines.push(`  L${e.lessonNumber} [${e.weekPeriod}] ${e.lessonTitle} — ${st}`);
     }
     downloadText(lines.join("\n"), `${subject?.name}-${classLevel}-progress.txt`, "text/plain");
     toast.success("Report downloaded");
@@ -180,35 +157,14 @@ export function ProgressPage() {
           <CardTitle>Calendar Heatmap</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-9 gap-1.5 sm:grid-cols-12">
-            {Array.from({ length: 36 }, (_, i) => i + 1).map((w) => {
-              const isHoliday = (progression ?? []).find(
-                (e) => e.weekNumber === w
-              )?.isHoliday;
-              const isEval = (progression ?? []).find(
-                (e) => e.weekNumber === w
-              )?.isEvaluation;
-              const st = statusByWeek[w];
+          <div className="grid grid-cols-8 gap-1.5 sm:grid-cols-12">
+            {(progression ?? []).map((e) => {
+              const st = statusByLesson[e.lessonNumber];
+              const isHoliday = e.isHoliday;
+              const isEval = e.isEvaluation;
               return (
-                <button
-                  key={w}
-                  title={`Week ${w}${st ? ` — ${STATUS_LABELS[st]}` : ""}${isHoliday ? " (holiday)" : ""}`}
-                  onClick={() =>
-                    !isHoliday &&
-                    navigate(`/lesson-plan/${subjectId}/${classLevel}/${w}`)
-                  }
-                  className={cn(
-                    "flex h-9 items-center justify-center rounded-md border border-slate-200 text-[10px] font-semibold dark:border-slate-700",
-                    isHoliday
-                      ? "border-dashed bg-slate-50 text-slate-300 dark:bg-slate-900"
-                      : st
-                        ? HEAT_COLORS[st]
-                        : isEval
-                          ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
-                          : "bg-slate-100 text-slate-400 dark:bg-slate-800"
-                  )}
-                >
-                  {w}
+                <button key={e.id} title={`L${e.lessonNumber} — ${e.lessonTitle}${st ? ` — ${STATUS_LABELS[st]}` : ""}${isHoliday ? " (holiday)" : ""} [${e.weekPeriod}]`} onClick={() => !isHoliday && navigate(`/lesson-plan/${subjectId}/${classLevel}/${e.lessonNumber}`)} className={cn("flex h-9 items-center justify-center rounded-md border border-slate-200 text-[10px] font-semibold dark:border-slate-700", isHoliday ? "border-dashed bg-slate-50 text-slate-300 dark:bg-slate-900" : st ? HEAT_COLORS[st] : isEval ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300" : "bg-slate-100 text-slate-400 dark:bg-slate-800")}>
+                  {e.lessonNumber}
                 </button>
               );
             })}

@@ -22,7 +22,7 @@ export function buildExportSections(
       `${meta.school || "School"}  |  ${meta.academicYear}`,
       `Subject: ${meta.subjectName}   Class: ${plan.classLevel}`,
       `Teacher: ${meta.teacher || "—"}   Date: ${plan.date ?? "—"}`,
-      `Week: ${plan.weekNumber}   Sequence: ${plan.sequence}   Term: ${plan.term}`,
+      `Lesson: ${plan.lessonNumber}   Period: ${plan.weekPeriod || `Week ${plan.weekNumber}`}   Term: ${plan.term}   Seq: ${plan.sequence}`,
       `Module: ${plan.module || "—"}`,
       `Chapter: ${plan.chapter || "—"}`,
       `Topic: ${plan.topic || "—"}`,

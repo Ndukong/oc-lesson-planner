@@ -90,6 +90,7 @@ function StringListEditor({
 export function LessonPlanEditor() {
   const { subjectId = "biology", classLevel = "Form 3", weekNumber = "1" } = useParams();
   const week = Number(weekNumber);
+  const lessonNumber = week;
   const navigate = useNavigate();
 
   const subject = useSubject(subjectId);
@@ -97,8 +98,7 @@ export function LessonPlanEditor() {
   const profile = useTeacherProfile();
   const calendar = useCalendar();
   const settings = useAISettings();
-  // Topic of the previous week's plan — gives the AI continuity context.
-  const previousPlan = useLessonPlan(subjectId, classLevel as never, week - 1);
+  const previousPlan = useLessonPlan(subjectId, classLevel as never, Math.max(1, lessonNumber - 1));
 
   const [draft, setDraft] = useState<LessonPlan | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -109,7 +109,7 @@ export function LessonPlanEditor() {
     let cancelled = false;
     setLoaded(false);
     setDraft(null);
-    getOrCreateLessonPlan(subjectId, classLevel as never, week).then((plan) => {
+    getOrCreateLessonPlan(subjectId, classLevel as never, lessonNumber).then((plan) => {
       if (!cancelled) {
         setDraft(plan);
         setLoaded(true);
@@ -118,7 +118,7 @@ export function LessonPlanEditor() {
     return () => {
       cancelled = true;
     };
-  }, [subjectId, classLevel, week]);
+  }, [subjectId, classLevel, lessonNumber]);
 
   const { saving, savedAt, flush } = useAutoSave(
     draft,
@@ -149,9 +149,9 @@ export function LessonPlanEditor() {
       aptitudes: topic?.aptitudes ?? "",
       attitudes: topic?.attitudes ?? "",
       otherResources: topic?.otherResources ?? "",
-      previousLessonTitle: week > 1 ? previousPlan?.topic ?? "" : ""
+      previousLessonTitle: lessonNumber > 1 ? previousPlan?.topic ?? "" : ""
     };
-  }, [draft, subject, modules, previousPlan, week]);
+  }, [draft, subject, modules, previousPlan, lessonNumber]);
 
   const applyResult = (res: Record<string, unknown>, field?: LessonField) => {
     const fields: LessonField[] = field ? [field] : (Object.keys(res) as LessonField[]);
@@ -251,8 +251,7 @@ export function LessonPlanEditor() {
             {draft.topic || "Lesson Plan"}
           </h1>
           <p className="text-sm text-slate-500">
-            {subject?.name} · {draft.classLevel} · Week {draft.weekNumber} ·{" "}
-            {draft.module || "—"}
+            {subject?.name} · {draft.classLevel} · L{draft.lessonNumber} · {draft.weekPeriod || `Week ${draft.weekNumber}`} · {draft.module || "—"}
           </p>
         </div>
         <div className="flex items-center gap-2">

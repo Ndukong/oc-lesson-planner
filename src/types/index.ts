@@ -59,16 +59,31 @@ export interface ProgressionEntry {
   subjectId: string;
   classLevel: ClassLevel;
   term: Term;
+  lessonNumber: number;
+  periodIndex: number;
+  weekPeriod: string;
+  periodLessonCount: number;
+  lessonIndexInPeriod: number;
   weekNumber: number;
   sequence: Sequence;
   moduleName: string;
   chapter: string;
   lessonTitle: string;
+  rawTitle: string;
   duration: number;
   isEvaluation: boolean;
+  isIntegration: boolean;
+  isRemediation: boolean;
+  isCatchUp: boolean;
   isHoliday: boolean;
-  lessonNumber?: number;
-  weekPeriod?: string;
+}
+
+export interface ProgressionPeriodGroup {
+  periodIndex: number;
+  weekPeriod: string;
+  term: Term;
+  sequence: Sequence;
+  lessons: ProgressionEntry[];
 }
 
 export interface Holiday {
@@ -109,6 +124,9 @@ export interface LessonPlan {
   subjectId: string;
   classLevel: ClassLevel;
   weekNumber: number;
+  lessonNumber: number;
+  periodIndex: number;
+  weekPeriod: string;
   date?: string;
   term: Term;
   sequence: Sequence;
