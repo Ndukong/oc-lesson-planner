@@ -28,6 +28,8 @@ npm-debug.log*
 
 # Reference source documents (syllabuses/progression sheets) — not needed at runtime
 samples/
+Progression Sheets/
+tools/tmp/
 
 # Playwright MCP artifacts
 .playwright-mcp/

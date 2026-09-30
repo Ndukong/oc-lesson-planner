@@ -81,3 +81,5 @@ db.version(3)
       }
     }
   });
+
+db.version(4).stores(STORES);

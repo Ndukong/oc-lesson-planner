@@ -46,7 +46,33 @@ export function useProgression(
     return db.progressionEntries
       .where("subjectId")
       .equals(subjectId)
+      .and((e) => e.classLevel === classLevel && e.weekNumber <= 36)
+      .sortBy("weekNumber");
+  }, [subjectId, classLevel]);
+}
+export function useProgressionAll(
+  subjectId?: string,
+  classLevel?: ClassLevel
+): ProgressionEntry[] | undefined {
+  return useLiveQuery(async () => {
+    if (!subjectId || !classLevel) return [];
+    return db.progressionEntries
+      .where("subjectId")
+      .equals(subjectId)
       .and((e) => e.classLevel === classLevel)
+      .sortBy("weekNumber");
+  }, [subjectId, classLevel]);
+}
+export function useOverflowLessons(
+  subjectId?: string,
+  classLevel?: ClassLevel
+): ProgressionEntry[] | undefined {
+  return useLiveQuery(async () => {
+    if (!subjectId || !classLevel) return [];
+    return db.progressionEntries
+      .where("subjectId")
+      .equals(subjectId)
+      .and((e) => e.classLevel === classLevel && e.weekNumber > 36)
       .sortBy("weekNumber");
   }, [subjectId, classLevel]);
 }

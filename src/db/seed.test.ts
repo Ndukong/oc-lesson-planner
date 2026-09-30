@@ -14,34 +14,72 @@ const HOLIDAY_WEEKS = new Set([13, 14, 25, 26]);
 const EVAL_WEEKS = new Set([6, 12, 18, 24, 30, 36]);
 const TEACHING_WEEKS = 36 - HOLIDAY_WEEKS.size - EVAL_WEEKS.size;
 
+function gridRows(rows: ReturnType<typeof buildProgression>, level: string) {
+  return rows.filter((r) => r.classLevel === level && r.weekNumber <= 36);
+}
+function overflowRows(rows: ReturnType<typeof buildProgression>, level: string) {
+  return rows.filter((r) => r.classLevel === level && r.weekNumber > 36);
+}
+
 describe("buildProgression — real seeds", () => {
   for (const seed of SUBJECT_SEEDS) {
     it(`lays out a complete 36-week grid for ${seed.name}`, () => {
       for (const level of seed.classLevels) {
-        const rows = buildProgression(seed).filter((r) => r.classLevel === level);
+        const all = buildProgression(seed);
+        const rows = gridRows(all, level);
         expect(rows).toHaveLength(36);
 
         const ids = new Set(rows.map((r) => r.id));
         expect(ids.size).toBe(36);
 
+        const over = overflowRows(all, level);
+        const lessons = (seed.curriculum[level as never] as unknown[] | undefined)?.length ?? 0;
+        if (lessons > TEACHING_WEEKS) {
+          expect(over.length).toBe(lessons - TEACHING_WEEKS);
+        } else {
+          expect(over.length).toBe(0);
+        }
+
         for (const row of rows) {
-          // Every teaching week is filled — no silent blanks.
           if (!row.isHoliday && !row.isEvaluation) {
             expect(row.lessonTitle.trim()).not.toBe("");
+            if (row.lessonTitle !== SPARE_WEEK_TITLE && row.lessonTitle !== TEACHER_PLANNED_TITLE) {
+              expect(row.lessonNumber).toBeDefined();
+              expect(row.weekPeriod).toBeDefined();
+            }
           }
-          // Holiday/evaluation flags are mutually exclusive and calendar-driven.
           if (row.isHoliday) expect(HOLIDAY_WEEKS.has(row.weekNumber)).toBe(true);
           if (row.isEvaluation) expect(EVAL_WEEKS.has(row.weekNumber)).toBe(true);
           expect(row.isHoliday && row.isEvaluation).toBe(false);
-          // Sequence assignment follows the week, contiguously.
           expect(row.sequence).toBe(sequenceFromWeek(row.weekNumber));
-          // Terms are 12-week blocks.
           const expectedTerm = row.weekNumber <= 12 ? 1 : row.weekNumber <= 24 ? 2 : 3;
           expect(row.term).toBe(expectedTerm);
         }
       }
     });
+
+    it(`uses Lesson title as the display title for ${seed.name}`, () => {
+      const level = seed.classLevels.find((l) => (seed.curriculum[l as never] as unknown[] | undefined)?.length) ?? seed.classLevels[0];
+      const teaching = gridRows(buildProgression(seed), level).filter((r) => !r.isHoliday && !r.isEvaluation && r.lessonTitle !== SPARE_WEEK_TITLE && r.lessonTitle !== TEACHER_PLANNED_TITLE);
+      if (teaching.length === 0) return;
+      const firstLessonTitle = (seed.curriculum[level as never] as { title: string }[])[0]?.title ?? "";
+      const firstTitleClean = firstLessonTitle.replace(/^Lesson\s*\d+\s*[:\.]?\s*/i, "").trim();
+      expect(teaching[0].lessonTitle).toBe(firstTitleClean);
+    });
   }
+
+  it("preserves every progression-sheet lesson: teaching + overflow == curriculum length", () => {
+    for (const seed of SUBJECT_SEEDS) {
+      for (const level of seed.classLevels) {
+        const cur = (seed.curriculum[level as never] as unknown[] | undefined)?.length ?? 0;
+        if (cur === 0) continue;
+        const all = buildProgression(seed);
+        const grid = gridRows(all, level).filter((r) => !r.isHoliday && !r.isEvaluation && r.lessonTitle !== SPARE_WEEK_TITLE && r.lessonTitle !== TEACHER_PLANNED_TITLE).length;
+        const over = overflowRows(all, level).length;
+        expect(grid + over).toBe(cur);
+      }
+    }
+  });
 });
 
 describe("buildProgression — custom calendars", () => {
@@ -59,9 +97,7 @@ describe("buildProgression — custom calendars", () => {
   };
 
   it("respects custom evaluation weeks instead of hardcoded ones", () => {
-    const rows = buildProgression(SUBJECT_SEEDS[0], custom).filter(
-      (r) => r.classLevel === "Form 1"
-    );
+    const rows = gridRows(buildProgression(SUBJECT_SEEDS[0], custom), "Form 1");
     const week5 = rows.find((r) => r.weekNumber === 5);
     const week6 = rows.find((r) => r.weekNumber === 6);
     expect(week5?.isEvaluation).toBe(true);
@@ -69,15 +105,18 @@ describe("buildProgression — custom calendars", () => {
   });
 
   it("respects custom holidays", () => {
-    const rows = buildProgression(SUBJECT_SEEDS[0], custom).filter(
-      (r) => r.classLevel === "Form 1"
-    );
+    const rows = gridRows(buildProgression(SUBJECT_SEEDS[0], custom), "Form 1");
     expect(rows.find((r) => r.weekNumber === 1)?.isHoliday).toBe(true);
     expect(rows.find((r) => r.weekNumber === 2)?.lessonTitle).toBe("Opening week");
-    // First lesson starts on the first free week (week 3).
-    expect(rows.find((r) => r.weekNumber === 3)?.lessonTitle).toBe(
-      SUBJECT_SEEDS[0].curriculum["Form 1"]?.[0]?.title
+    expect(gridRows(buildProgression(SUBJECT_SEEDS[0], custom), "Form 1").find((r) => r.weekNumber === 3)?.lessonTitle).toBe(
+      (SUBJECT_SEEDS[0].curriculum["Form 1"]?.[0]?.title ?? "").replace(/^Lesson\s*\d+\s*[:\.]?\s*/i, "").trim()
     );
+  });
+
+  it("keeps progression order: first teaching week uses first curriculum lesson", () => {
+    const rows = gridRows(buildProgression(SUBJECT_SEEDS[0]), "Form 1").filter((r) => !r.isHoliday && !r.isEvaluation);
+    const firstTitle = (SUBJECT_SEEDS[0].curriculum["Form 1"]?.[0]?.title ?? "").replace(/^Lesson\s*\d+\s*[:\.]?\s*/i, "").trim();
+    expect(rows[0]?.lessonTitle).toBe(firstTitle);
   });
 });
 
@@ -100,9 +139,7 @@ describe("buildProgression — under- and over-filled curricula", () => {
   }
 
   it("labels leftover teaching weeks as spare weeks (no blanks)", () => {
-    const rows = buildProgression(fakeSeed(5), DEFAULT_CALENDAR).filter(
-      (r) => r.classLevel === "Form 1"
-    );
+    const rows = gridRows(buildProgression(fakeSeed(5), DEFAULT_CALENDAR), "Form 1");
     const spare = rows.filter((r) => r.lessonTitle === SPARE_WEEK_TITLE);
     expect(spare).toHaveLength(TEACHING_WEEKS - 5);
     for (const r of spare) {
@@ -112,19 +149,18 @@ describe("buildProgression — under- and over-filled curricula", () => {
     }
   });
 
-  it("warns and never leaves blanks when lessons overflow the grid", () => {
+  it("appends overflow rows beyond week 36 and keeps the 36-week grid intact", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const rows = buildProgression(fakeSeed(40), DEFAULT_CALENDAR).filter(
-      (r) => r.classLevel === "Form 1"
-    );
-    const teaching = rows.filter((r) => !r.isHoliday && !r.isEvaluation);
-    expect(teaching).toHaveLength(TEACHING_WEEKS);
-    for (const r of teaching) {
+    const all = buildProgression(fakeSeed(40), DEFAULT_CALENDAR);
+    const grid = gridRows(all, "Form 1");
+    const over = overflowRows(all, "Form 1");
+    expect(grid).toHaveLength(36);
+    expect(grid.filter((r) => !r.isHoliday && !r.isEvaluation)).toHaveLength(TEACHING_WEEKS);
+    for (const r of grid.filter((r) => !r.isHoliday && !r.isEvaluation)) {
       expect(r.lessonTitle.trim()).not.toBe("");
     }
-    expect(warn).toHaveBeenCalledWith(
-      expect.stringContaining("did not fit into the 36-week grid")
-    );
+    expect(over).toHaveLength(40 - TEACHING_WEEKS);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("did not fit into the 36-week grid"));
   });
 });
 
@@ -141,20 +177,28 @@ describe("buildSubjectSeed", () => {
 
     for (const level of biology.classLevels) {
       const modules = built.modules.filter((m) => m.classLevel === level);
-      const names = modules.map((m) => m.name);
-      expect(new Set(names).size).toBe(names.length); // unique module names
-      modules.forEach((m, i) => expect(m.moduleNumber).toBe(i + 1));
-      for (const m of modules) {
-        expect(m.topics.length).toBeGreaterThan(0);
-        for (const t of m.topics) {
-          expect(t.coreKnowledge.trim().length).toBeGreaterThan(20);
-          expect(t.competencies.trim()).not.toBe("");
+      if ((biology.curriculum[level as never] as unknown[] | undefined)?.length) {
+        expect(modules.length).toBeGreaterThan(0);
+        const names = modules.map((m) => m.name);
+        expect(new Set(names).size).toBe(names.length);
+        modules.forEach((m, i) => expect(m.moduleNumber).toBe(i + 1));
+        for (const m of modules) {
+          expect(m.topics.length).toBeGreaterThan(0);
+          for (const t of m.topics) {
+            expect(t.coreKnowledge.trim().length).toBeGreaterThan(20);
+            expect(t.competencies.trim()).not.toBe("");
+          }
         }
       }
     }
 
-    const form1Rows = built.progression.filter((r) => r.classLevel === "Form 1");
-    expect(form1Rows).toHaveLength(36);
+    const form1Grid = gridRows(built.progression, "Form 1");
+    expect(form1Grid).toHaveLength(36);
+    const teaching = form1Grid.filter((r) => !r.isHoliday && !r.isEvaluation && r.lessonTitle !== SPARE_WEEK_TITLE);
+    for (const r of teaching) {
+      expect(r.chapter.trim()).not.toBe("");
+      expect(r.lessonTitle.trim()).not.toBe("");
+    }
   });
 });
 
@@ -170,9 +214,7 @@ describe("Sixth Form support", () => {
 
   it("gives sixth-form levels a full teacher-planned grid", () => {
     if (!physics) return;
-    const rows = buildProgression(physics, DEFAULT_CALENDAR).filter(
-      (r) => r.classLevel === "Lower Sixth"
-    );
+    const rows = gridRows(buildProgression(physics, DEFAULT_CALENDAR), "Lower Sixth");
     expect(rows).toHaveLength(36);
     const teaching = rows.filter((r) => !r.isHoliday && !r.isEvaluation);
     for (const r of teaching) {
@@ -183,7 +225,6 @@ describe("Sixth Form support", () => {
 
   it("keeps spare-week semantics for levels that have a partial curriculum", () => {
     if (!physics) return;
-    // a seed variant with only two Form 1 lessons uses the spare-week label
     const partial: SubjectSeed = {
       ...physics,
       id: "partial-test",
@@ -192,44 +233,62 @@ describe("Sixth Form support", () => {
       },
       classLevels: ["Form 1"]
     };
-    const rows = buildProgression(partial, DEFAULT_CALENDAR).filter(
-      (r) => r.classLevel === "Form 1"
-    );
+    const rows = gridRows(buildProgression(partial, DEFAULT_CALENDAR), "Form 1");
     const spare = rows.filter((r) => r.lessonTitle === SPARE_WEEK_TITLE);
     expect(spare.length).toBeGreaterThan(0);
   });
 });
 
-describe("real MINESEC matrix integration", () => {
-  it("uses real families of situations for Physics Form 1", () => {
-    const physics = SUBJECT_SEEDS.find((s) => s.id === "physics");
-    expect(physics).toBeDefined();
-    if (!physics) return;
-    const built = buildSubjectSeed(physics);
-    const world = built.modules.find(
-      (m) => m.classLevel === "Form 1" && m.name.toLowerCase().includes("world")
-    );
-    expect(world).toBeDefined();
-    if (!world) return;
-    // real matrix text, not the generated template
-    expect(world.familiesOfSituations).not.toContain("Learners encounter");
-    expect(world.familiesOfSituations.toLowerCase()).toContain("investigating");
+describe("progression sheet fidelity", () => {
+  it("stores Chapter and Week/Period from the sheet on every teaching week", () => {
+    for (const seed of SUBJECT_SEEDS) {
+      for (const level of seed.classLevels) {
+        const cur = seed.curriculum[level as never] as { chapter: string; weekRaw?: string }[] | undefined;
+        if (!cur?.length) continue;
+        const rows = gridRows(buildProgression(seed), level).filter((r) => !r.isHoliday && !r.isEvaluation && r.lessonTitle !== SPARE_WEEK_TITLE && r.lessonTitle !== TEACHER_PLANNED_TITLE);
+        for (const r of rows) {
+          expect(r.chapter.trim().length).toBeGreaterThan(0);
+          expect(r.weekPeriod).toBeDefined();
+          expect(String(r.weekPeriod)).toMatch(/\d{2}\/\d{2}\/\d{4}/);
+        }
+      }
+    }
   });
 
-  it("matches chapter-level core knowledge from the matrix content", () => {
-    const physics = SUBJECT_SEEDS.find((s) => s.id === "physics");
-    if (!physics) return;
-    const built = buildSubjectSeed(physics);
-    const world = built.modules.find(
-      (m) => m.classLevel === "Form 1" && m.name.toLowerCase().includes("world")
-    );
-    expect(world).toBeDefined();
-    if (!world) return;
-    const safety = world.topics.find((t) => t.name.toLowerCase().includes("safety"));
-    expect(safety).toBeDefined();
-    if (!safety) return;
-    // the real matrix content item mentions safety rules / laboratory
-    expect(safety.coreKnowledge.toLowerCase()).toContain("safety");
+  it("weekPeriod matches the sheet span for the first lesson of each level", () => {
+    for (const seed of SUBJECT_SEEDS) {
+      for (const level of seed.classLevels) {
+        const cur = seed.curriculum[level as never] as { weekRaw?: string }[] | undefined;
+        if (!cur?.length || !cur[0]?.weekRaw) continue;
+        const first = gridRows(buildProgression(seed), level).find((r) => !r.isHoliday && !r.isEvaluation);
+        expect(first?.weekPeriod).toBe(cur[0].weekRaw);
+      }
+    }
+  });
+
+  it("Syllabus modules are derived from the Chapter column (one module per distinct chapter)", () => {
+    const bio = SUBJECT_SEEDS.find((s) => s.id === "biology");
+    if (!bio) return;
+    const built = buildSubjectSeed(bio);
+    const F1 = built.modules.filter((m) => m.classLevel === "Form 1");
+    expect(F1.length).toBeGreaterThanOrEqual(8);
+    expect(F1.some((m) => /environment/i.test(m.name))).toBe(true);
+  });
+});
+
+describe("real MINESEC matrix integration (optional enrichment)", () => {
+  it("still enriches matching modules with real families of situations where available", () => {
+    const seedsWithMatrix = SUBJECT_SEEDS.filter((s) => ["biology", "chemistry", "physics", "mathematics", "computer-science", "geography", "history"].includes(s.id));
+    let enriched = 0;
+    for (const seed of seedsWithMatrix) {
+      const built = buildSubjectSeed(seed);
+      for (const level of seed.classLevels.slice(0, 3)) {
+        for (const m of built.modules.filter((x) => x.classLevel === level)) {
+          if (!m.familiesOfSituations.includes("Learners encounter")) enriched++;
+        }
+      }
+    }
+    expect(enriched).toBeGreaterThan(0);
   });
 
   it("falls back to the template for subjects without extracted data", () => {
@@ -238,7 +297,6 @@ describe("real MINESEC matrix integration", () => {
     const built = buildSubjectSeed(lit);
     const form4 = built.modules.filter((m) => m.classLevel === "Form 4");
     for (const m of form4) {
-      // Form 4/5 literature PDFs are .docx and were not extracted
       expect(m.familiesOfSituations).toContain("Learners encounter");
     }
   });

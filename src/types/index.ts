@@ -67,6 +67,8 @@ export interface ProgressionEntry {
   duration: number;
   isEvaluation: boolean;
   isHoliday: boolean;
+  lessonNumber?: number;
+  weekPeriod?: string;
 }
 
 export interface Holiday {

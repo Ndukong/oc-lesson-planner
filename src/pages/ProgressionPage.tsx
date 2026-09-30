@@ -57,7 +57,7 @@ export function ProgressionPage() {
             Progression Grid
           </h1>
           <p className="text-sm text-slate-500">
-            {subject?.name} · 36-week progression · {classLevel}
+            {subject?.name} · harmonised progression · {classLevel} · Lesson title is the teachable unit
           </p>
         </div>
         <Button
@@ -116,12 +116,13 @@ export function ProgressionPage() {
 
       <Card className="overflow-hidden">
         <div className="divide-y divide-slate-100 dark:divide-slate-800">
-          <div className="grid grid-cols-[48px_44px_1fr] gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid-cols-[52px_48px_1fr_1fr_1fr_56px_72px] dark:bg-slate-800/50">
+          <div className="grid grid-cols-[48px_44px_1fr] gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid-cols-[52px_48px_52px_1fr_1fr_56px_72px] dark:bg-slate-800/50">
             <span>Week</span>
             <span>Seq</span>
-            <span>Module</span>
+            <span className="hidden sm:block">Lsn #</span>
+            <span className="sm:hidden">Lesson</span>
             <span className="hidden sm:block">Chapter</span>
-            <span className="hidden sm:block">Lesson</span>
+            <span className="hidden sm:block">Lesson title</span>
             <span className="hidden sm:block">Dur</span>
             <span className="text-right">Status</span>
           </div>
@@ -136,8 +137,9 @@ export function ProgressionPage() {
                 onClick={() =>
                   navigate(`/lesson-plan/${subjectId}/${classLevel}/${entry.weekNumber}`)
                 }
+                title={entry.weekPeriod ? `${entry.weekPeriod} · ${entry.chapter}` : entry.chapter}
                 className={cn(
-                  "grid w-full grid-cols-[48px_44px_1fr_auto] items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-indigo-50/60 sm:grid-cols-[52px_48px_1fr_1fr_1fr_56px_72px] dark:hover:bg-slate-800/60",
+                  "grid w-full grid-cols-[48px_44px_1fr_auto] items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-indigo-50/60 sm:grid-cols-[52px_48px_52px_1fr_1fr_56px_72px] dark:hover:bg-slate-800/60",
                   isHoliday && "bg-slate-50 opacity-60 dark:bg-slate-900",
                   isEval && "bg-amber-50/60 dark:bg-amber-950/30"
                 )}
@@ -153,6 +155,9 @@ export function ProgressionPage() {
                 >
                   {entry.sequence}
                 </span>
+                <span className="hidden sm:block text-center text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  {!isHoliday && !isEval && entry.lessonNumber ? `#${entry.lessonNumber}` : "—"}
+                </span>
                 <span className="truncate text-sm text-slate-600 dark:text-slate-300">
                   {isHoliday ? (
                     <span className="italic text-slate-400">
@@ -165,16 +170,15 @@ export function ProgressionPage() {
                     </span>
                   ) : (
                     <>
-                      <span className="hidden sm:inline">{entry.moduleName}</span>
-                      <span className="sm:hidden">{entry.chapter || entry.lessonTitle}</span>
+                      <span className="hidden sm:inline truncate" title={entry.chapter}>
+                        {entry.chapter}
+                      </span>
+                      <span className="sm:hidden truncate">{entry.lessonTitle}</span>
                     </>
                   )}
                 </span>
-                <span className="hidden sm:block truncate text-sm text-slate-500 dark:text-slate-400">
-                  {entry.chapter}
-                </span>
-                <span className="hidden sm:block truncate text-sm text-slate-500 dark:text-slate-400">
-                  {entry.lessonTitle}
+                <span className="hidden sm:block truncate text-sm text-slate-500 dark:text-slate-400" title={entry.lessonTitle}>
+                  {isHoliday || isEval ? "—" : entry.lessonTitle}
                 </span>
                 <span className="hidden sm:block text-center text-sm text-slate-500 dark:text-slate-400">
                   {entry.duration > 0 ? `${entry.duration}` : "—"}
