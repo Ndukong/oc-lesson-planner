@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Bold, Eye, Heading2, List, Pencil, SquareDashed } from "lucide-react";
+import { Bold, Eye, Heading2, List, Pencil, Sigma, SquareDashed } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { MarkdownPreview } from "@/components/lesson-plan/MarkdownPreview";
@@ -36,6 +36,7 @@ export function LessonNotesField({
     { label: "Heading", icon: Heading2, fn: () => insert("## ") },
     { label: "Bold", icon: Bold, fn: () => insert("**", "**") },
     { label: "Bullet list", icon: List, fn: () => insert("- ") },
+    { label: "Math", icon: Sigma, fn: () => insert("$", "$") },
     {
       label: "Diagram placeholder",
       icon: SquareDashed,
@@ -77,7 +78,7 @@ export function LessonNotesField({
           ref={ref}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="Write the notes learners will copy into their exercise books. Use ## for headings, ** for bold, - for bullets, and [Draw ...] for diagram instructions."
+          placeholder="Write the notes learners will copy into their exercise books. Use ## for headings, ** for bold, - for bullets, $x^2$ for math, and [Draw ...] for diagram instructions."
           className="min-h-[200px] leading-relaxed"
         />
       )}

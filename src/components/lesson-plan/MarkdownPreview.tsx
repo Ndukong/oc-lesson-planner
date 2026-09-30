@@ -1,21 +1,60 @@
 import { type ReactNode } from "react";
+import katex from "katex";
+import "katex/dist/katex.min.css";
 
-function renderInline(text: string): ReactNode[] {
-  const parts: ReactNode[] = [];
-  const regex = /(\*\*[^*]+\*\*)/g;
-  const chunks = text.split(regex);
-  chunks.forEach((chunk, i) => {
-    if (chunk.startsWith("**") && chunk.endsWith("**")) {
-      parts.push(
-        <strong key={i} className="font-semibold text-slate-900 dark:text-slate-100">
-          {chunk.slice(2, -2)}
-        </strong>
-      );
+const INLINE_MATH_RE = /\$(?:\\\(|\$)?([^$\n]+?)(?:\\\)|\$)?\$/g;
+
+function MathTex({ tex, display }: { tex: string; display: boolean }) {
+  let html = "";
+  try {
+    html = katex.renderToString(tex, {
+      throwOnError: false,
+      displayMode: display
+    });
+  } catch {
+    html = `<span>${tex}</span>`;
+  }
+  const el = <span dangerouslySetInnerHTML={{ __html: html }} />;
+  return display ? <div className="my-2 overflow-x-auto">{el}</div> : <span className="mx-0.5">{el}</span>;
+}
+
+const PAREN_MATH_RE = /\\\(([^)\\]+)\\\)/g;
+
+function extractMathLike(chunk: string): string | null {
+  if (chunk.startsWith("$") && chunk.endsWith("$") && chunk.length > 2) {
+    const m = INLINE_MATH_RE.exec(chunk);
+    INLINE_MATH_RE.lastIndex = 0;
+    return m ? m[1].trim() : null;
+  }
+  if (chunk.startsWith("\\(") && chunk.endsWith("\\)")) {
+    const m = PAREN_MATH_RE.exec(chunk);
+    PAREN_MATH_RE.lastIndex = 0;
+    return m ? m[1].trim() : null;
+  }
+  return null;
+}
+
+/** Render inline text supporting **bold**, *italic*, `code` and $math$ / \(math\). */
+function renderInline(text: string, keyBase = 0): ReactNode[] {
+  const nodes: ReactNode[] = [];
+  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*\n]+\*|`[^`\n]+`|\$[^$\n]+\$|\\\([^)\\]+\\\))/g);
+  let k = 0;
+  parts.forEach((chunk) => {
+    if (!chunk) return;
+    if (chunk.startsWith("**") && chunk.endsWith("**") && chunk.length > 4) {
+      nodes.push(<strong key={`${keyBase}-${k++}`} className="font-semibold text-slate-900 dark:text-slate-100">{chunk.slice(2, -2)}</strong>);
     } else {
-      parts.push(<span key={i}>{chunk}</span>);
+      const tex = extractMathLike(chunk);
+      if (tex != null) {
+        nodes.push(<MathTex key={`${keyBase}-${k++}`} tex={tex} display={false} />);
+      } else if (chunk.startsWith("`") && chunk.endsWith("`")) {
+        nodes.push(<code key={`${keyBase}-${k++}`} className="rounded bg-slate-100 px-1 text-[0.9em] text-slate-800 dark:bg-slate-800 dark:text-slate-200">{chunk.slice(1, -1)}</code>);
+      } else {
+        nodes.push(<span key={`${keyBase}-${k++}`}>{chunk}</span>);
+      }
     }
   });
-  return parts;
+  return nodes;
 }
 
 export function MarkdownPreview({ text }: { text: string }) {
@@ -44,13 +83,13 @@ export function MarkdownPreview({ text }: { text: string }) {
       flushList(`h-${i}`);
       elements.push(
         <h4 key={i} className="mt-3 mb-1 text-sm font-bold text-slate-900 dark:text-slate-100">
-          {trimmed.slice(3)}
+          {renderInline(trimmed.slice(3).trim(), i)}
         </h4>
       );
     } else if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
       list.push(
         <li key={i} className="text-sm leading-relaxed text-slate-700 dark:text-slate-300">
-          {renderInline(trimmed.slice(2))}
+          {renderInline(trimmed.slice(2), i)}
         </li>
       );
     } else if (/^\[(Draw|Diagram|Figure)/i.test(trimmed)) {
@@ -65,18 +104,27 @@ export function MarkdownPreview({ text }: { text: string }) {
       );
     } else if (trimmed === "") {
       flushList(`e-${i}`);
+    } else if (/^\$\$/.test(trimmed)) {
+      flushList(`m-${i}`);
+      const m = INLINE_MATH_RE.exec(trimmed.slice(2));
+      INLINE_MATH_RE.lastIndex = 0;
+      if (m) {
+        elements.push(<MathTex key={i} tex={m[1].trim()} display />);
+      } else {
+        elements.push(<p key={i} className="my-1 text-sm leading-relaxed text-slate-700 dark:text-slate-300">{renderInline(trimmed, i)}</p>);
+      }
     } else if (/^\d+\.\s/.test(trimmed)) {
       flushList(`n-${i}`);
       elements.push(
         <p key={i} className="my-0.5 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
-          {renderInline(trimmed)}
+          {renderInline(trimmed, i)}
         </p>
       );
     } else {
       flushList(`p-${i}`);
       elements.push(
         <p key={i} className="my-1 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
-          {renderInline(trimmed)}
+          {renderInline(trimmed, i)}
         </p>
       );
     }

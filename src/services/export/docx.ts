@@ -14,7 +14,7 @@ import {
 import { buildExportSections, type ExportMeta } from "@/services/export/templates";
 import type { LessonPlan } from "@/types";
 import { mdToDocxElements } from "@/services/export/markdown";
-import { downloadBlob } from "@/utils/format";
+import { downloadBlob, safeFilename } from "@/utils/format";
 
 const NUMBERING = [
   {
@@ -122,7 +122,7 @@ export async function exportLessonPlanDocx(
   });
 
   const blob = await Packer.toBlob(doc);
-  downloadBlob(blob, `${plan.classLevel}-week${plan.weekNumber}-lesson-plan.docx`);
+  downloadBlob(blob, `${safeFilename(plan.topic)}-lesson-plan.docx`);
 }
 
 /**
