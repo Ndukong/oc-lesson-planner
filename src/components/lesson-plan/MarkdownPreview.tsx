@@ -90,14 +90,19 @@ export function MarkdownPreview({ text }: { text: string }) {
 
   lines.forEach((line, i) => {
     const trimmed = line.trim();
-    if (trimmed.startsWith("## ")) {
+    // Headings: # through ######
+    const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
+    if (headingMatch) {
       flushList(`h-${i}`);
+      const level = headingMatch[1].length;
+      const levelClass = level === 1 ? "text-lg" : level === 2 ? "text-base" : "text-sm";
       elements.push(
-        <h4 key={i} className="mt-3 mb-1 text-sm font-bold text-slate-900 dark:text-slate-100">
-          {renderInline(trimmed.slice(3).trim(), i)}
+        <h4 key={i} className={`mt-3 mb-1 text-sm font-bold text-slate-900 dark:text-slate-100 ${levelClass}`}>
+          {renderInline(headingMatch[2].trim(), i)}
         </h4>
       );
     } else if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
+      flushList(`l-${i}`);
       list.push(
         <li key={i} className="text-sm leading-relaxed text-slate-700 dark:text-slate-300">
           {renderInline(trimmed.slice(2), i)}
@@ -123,12 +128,13 @@ export function MarkdownPreview({ text }: { text: string }) {
       } else {
         elements.push(<p key={i} className="my-1 text-sm leading-relaxed text-slate-700 dark:text-slate-300">{renderInline(trimmed, i)}</p>);
       }
-    } else if (/^\d+\.\s/.test(trimmed)) {
-      flushList(`n-${i}`);
-      elements.push(
-        <p key={i} className="my-0.5 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
-          {renderInline(trimmed, i)}
-        </p>
+    } else if (/^\d+[.)]\s/.test(trimmed)) {
+      // Numbered list: 1. 2. 3. or 1) 2) 3)
+      flushList(`l-${i}`);
+      list.push(
+        <li key={i} className="text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+          {renderInline(trimmed.replace(/^\d+[.)]\s*/, ""), i)}
+        </li>
       );
     } else {
       flushList(`p-${i}`);
