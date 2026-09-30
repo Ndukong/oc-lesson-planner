@@ -60,11 +60,6 @@ export interface ProgressionEntry {
   classLevel: ClassLevel;
   term: Term;
   lessonNumber: number;
-  periodIndex: number;
-  weekPeriod: string;
-  periodLessonCount: number;
-  lessonIndexInPeriod: number;
-  weekNumber: number;
   sequence: Sequence;
   moduleName: string;
   chapter: string;
@@ -75,14 +70,10 @@ export interface ProgressionEntry {
   isIntegration: boolean;
   isRemediation: boolean;
   isCatchUp: boolean;
-  isHoliday: boolean;
 }
 
-export interface ProgressionPeriodGroup {
-  periodIndex: number;
-  weekPeriod: string;
+export interface ProgressionTermGroup {
   term: Term;
-  sequence: Sequence;
   lessons: ProgressionEntry[];
 }
 
@@ -123,10 +114,9 @@ export interface LessonPlan {
   id: string;
   subjectId: string;
   classLevel: ClassLevel;
-  weekNumber: number;
   lessonNumber: number;
-  periodIndex: number;
-  weekPeriod: string;
+  /** User-assigned teaching week (0 = not set). The app never computes it. */
+  weekNumber: number;
   date?: string;
   term: Term;
   sequence: Sequence;

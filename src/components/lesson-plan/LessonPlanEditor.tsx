@@ -251,7 +251,7 @@ export function LessonPlanEditor() {
             {draft.topic || "Lesson Plan"}
           </h1>
           <p className="text-sm text-slate-500">
-            {subject?.name} · {draft.classLevel} · L{draft.lessonNumber} · {draft.weekPeriod || `Week ${draft.weekNumber}`} · {draft.module || "—"}
+            {subject?.name} · {draft.classLevel} · L{draft.lessonNumber}{draft.weekNumber ? ` · your Week ${draft.weekNumber}` : ""} · {draft.module || "—"}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -272,6 +272,17 @@ export function LessonPlanEditor() {
           <CardTitle>Lesson Details</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <Label>Your teaching week (you decide)</Label>
+            <Input
+              type="number"
+              min={0}
+              placeholder="0 = not set"
+              value={draft.weekNumber || ""}
+              onChange={(e) => patch({ weekNumber: Math.max(0, Number(e.target.value) || 0) })}
+            />
+            <p className="mt-1 text-xs text-slate-500">Set which school week you'll teach this lesson — the app doesn't auto-calculate it.</p>
+          </div>
           <div>
             <Label>Date</Label>
             <Input

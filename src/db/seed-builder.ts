@@ -2,7 +2,7 @@ import { DEFAULT_CALENDAR } from "@/types";
 import type {
   ClassLevel,
   ProgressionEntry,
-  ProgressionPeriodGroup,
+  ProgressionTermGroup,
   SchoolCalendar,
   Sequence,
   Subject,
@@ -10,11 +10,9 @@ import type {
   SyllabusTopic,
   Term,
 } from "@/types";
-import { sequenceFromWeek, termFromWeek } from "@/utils/calendar";
 import type { CurriculumLesson, SubjectSeed } from "@/db/seed-curriculum";
 import { SYLLABUS_MATRIX, type MatrixModuleData } from "@/db/syllabus-matrix.generated";
 
-export const SPARE_WEEK_TITLE = "Spare week (consolidation / catch-up)";
 export const TEACHER_PLANNED_TITLE = "Teacher-planned week (add your lesson)";
 
 function normName(s: string): string {
@@ -91,10 +89,6 @@ export function matchCoreKnowledge(chapter: string, matrix: MatrixModuleData | u
 }
 function cap(s: string, max = 800): string {
   return s.length > max ? s.slice(0, max - 1).trimEnd() + "…" : s;
-}
-function sequenceForWeek(week: number, calendar: SchoolCalendar): Sequence {
-  const s = calendar.sequences.find((x) => week >= x.startWeek && week <= x.endWeek);
-  return (s?.number ?? sequenceFromWeek(week)) as Sequence;
 }
 function slug(level: ClassLevel): string {
   return level.toLowerCase().replace(/[^a-z0-9]+/g, "-");
@@ -194,87 +188,52 @@ function cleanDisplayTitle(raw: string): string {
   return s || raw.trim();
 }
 
-function sanitizePeriod(raw: string): string {
-  const m = raw.match(/\d{2}\/\d{2}\/\d{4}\s*au\s*\d{2}\/\d{2}\/\d{4}/);
-  return m ? m[0] : raw.trim();
-}
-
+/**
+ * Term-based progression built straight from the harmonised sheets.
+ * NO dates, NO week calculation — the sheet order (lesson #, chapter, title,
+ * FIRST/SECOND/THIRD TERM) is kept exactly; the teacher decides the week.
+ */
 export function buildProgression(seed: SubjectSeed, _calendar: SchoolCalendar = DEFAULT_CALENDAR): ProgressionEntry[] {
   const entries: ProgressionEntry[] = [];
   for (const level of seed.classLevels) {
     const lessons: CurriculumLesson[] = [...(seed.curriculum[level] ?? [])];
     const filtered = lessons.filter((l) => l.title.trim().toUpperCase() !== "1ST BREAK" && l.title.trim() !== "");
-    if (filtered.length === 0) continue;
-    type PeriodRun = { weekPeriod: string; term: Term; sequence: Sequence; lessons: CurriculumLesson[] };
-    const runs: PeriodRun[] = [];
-    let current: PeriodRun | null = null;
-    for (const lesson of filtered) {
-      const raw = sanitizePeriod((lesson.weekRaw ?? "").trim());
-      const key = raw || "__NO_PERIOD__";
-      if (!current || current.weekPeriod !== key) {
-        const term = (lesson.termHint as Term) ?? (termFromWeek(runs.length + 1) as Term);
-        const sequence = (sequenceForWeek(runs.length + 1, DEFAULT_CALENDAR) ?? term) as Sequence;
-        current = { weekPeriod: key === "__NO_PERIOD__" ? "" : key, term, sequence, lessons: [] };
-        runs.push(current);
-      }
-      current.lessons.push(lesson);
-    }
-    let globalLessonNumber = 0;
-    runs.forEach((run, rIdx) => {
-      const periodIndex = rIdx + 1;
-      const periodLessonCount = run.lessons.length;
-      run.lessons.forEach((lesson, gIdx) => {
-        globalLessonNumber++;
-        const flags = detectFlags(lesson.title);
-        const disp = cleanDisplayTitle(lesson.title);
-        entries.push({
-          id: `prog-${seed.id}-${slug(level)}-p${periodIndex}-l${gIdx + 1}`,
-          subjectId: seed.id,
-          classLevel: level,
-          term: run.term,
-          lessonNumber: globalLessonNumber,
-          periodIndex,
-          weekPeriod: run.weekPeriod,
-          periodLessonCount,
-          lessonIndexInPeriod: gIdx + 1,
-          weekNumber: globalLessonNumber,
-          sequence: run.sequence,
-          moduleName: lesson.module,
-          chapter: lesson.chapter,
-          lessonTitle: disp,
-          rawTitle: lesson.title,
-          duration: lesson.duration,
-          isEvaluation: flags.isEvaluation,
-          isIntegration: flags.isIntegration,
-          isRemediation: flags.isRemediation,
-          isCatchUp: flags.isCatchUp,
-          isHoliday: false,
-        });
+    let lessonNumber = 0;
+    filtered.forEach((lesson) => {
+      lessonNumber++;
+      const term = (lesson.termHint ?? 1) as Term;
+      const flags = detectFlags(lesson.title);
+      entries.push({
+        id: `prog-${seed.id}-${slug(level)}-l${lessonNumber}`,
+        subjectId: seed.id,
+        classLevel: level,
+        term,
+        lessonNumber,
+        sequence: term as Sequence,
+        moduleName: lesson.module,
+        chapter: lesson.chapter,
+        lessonTitle: cleanDisplayTitle(lesson.title),
+        rawTitle: lesson.title,
+        duration: lesson.duration,
+        isEvaluation: flags.isEvaluation,
+        isIntegration: flags.isIntegration,
+        isRemediation: flags.isRemediation,
+        isCatchUp: flags.isCatchUp,
       });
     });
   }
   return entries;
 }
 
-export function groupProgressionByPeriod(entries: ProgressionEntry[]): ProgressionPeriodGroup[] {
-  const map = new Map<number, ProgressionEntry[]>();
-  const meta = new Map<number, { weekPeriod: string; term: Term; sequence: Sequence }>();
+export function groupProgressionByTerm(entries: ProgressionEntry[]): ProgressionTermGroup[] {
+  const map = new Map<Term, ProgressionEntry[]>();
   for (const e of entries) {
-    if (!map.has(e.periodIndex)) {
-      map.set(e.periodIndex, []);
-      meta.set(e.periodIndex, { weekPeriod: e.weekPeriod, term: e.term, sequence: e.sequence });
-    }
-    map.get(e.periodIndex)!.push(e);
+    if (!map.has(e.term)) map.set(e.term, []);
+    map.get(e.term)!.push(e);
   }
-  return [...map.entries()]
-    .sort((a, b) => a[0] - b[0])
-    .map(([periodIndex, lessons]) => ({
-      periodIndex,
-      weekPeriod: meta.get(periodIndex)!.weekPeriod,
-      term: meta.get(periodIndex)!.term,
-      sequence: meta.get(periodIndex)!.sequence,
-      lessons: lessons.sort((a, b) => a.lessonIndexInPeriod - b.lessonIndexInPeriod),
-    }));
+  return ([1, 2, 3] as Term[])
+    .filter((t) => map.has(t))
+    .map((term) => ({ term, lessons: map.get(term)! }));
 }
 
 export function buildSubjectSeed(seed: SubjectSeed): {

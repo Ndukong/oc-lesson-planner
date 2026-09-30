@@ -3,7 +3,7 @@ import toast from "react-hot-toast";
 import { FileDown, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input, Label, Select } from "@/components/ui/input";
+import { Label, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   useCalendar,
@@ -16,11 +16,10 @@ import { useAppStore } from "@/stores/app-store";
 import { exportLessonsBatchPDF } from "@/services/export/pdf";
 import { exportLessonPlansBatchDocx } from "@/services/export/docx";
 import { STATUS_COLORS, STATUS_LABELS, TERM_NAMES } from "@/types";
-import type { LessonPlan, Sequence, Term } from "@/types";
-import { weekRangeForSequence, weekRangeForTerm } from "@/utils/calendar";
+import type { LessonPlan, Term } from "@/types";
 import { cn } from "@/utils/cn";
 
-type RangeMode = "week" | "sequence" | "term" | "custom";
+type RangeMode = "all" | "term";
 
 export function ExportPage() {
   const { subjectId, classLevel, setClassLevel } = useAppStore();
@@ -30,36 +29,16 @@ export function ExportPage() {
   const calendar = useCalendar();
   const profile = useTeacherProfile();
 
-  const [rangeMode, setRangeMode] = useState<RangeMode>("term");
-  const [week, setWeek] = useState(1);
-  const [sequence, setSequence] = useState(1);
+  const [rangeMode, setRangeMode] = useState<RangeMode>("all");
   const [term, setTerm] = useState<Term>(1);
-  const [startWeek, setStartWeek] = useState(1);
-  const [endWeek, setEndWeek] = useState(6);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
 
-  const weekNumbers = useMemo(() => {
-    if (rangeMode === "week") return [week];
-    if (rangeMode === "sequence") {
-      const [a, b] = weekRangeForSequence(sequence as Sequence);
-      return Array.from({ length: b - a + 1 }, (_, i) => a + i);
-    }
-    if (rangeMode === "term") {
-      const [a, b] = weekRangeForTerm(term);
-      return Array.from({ length: b - a + 1 }, (_, i) => a + i);
-    }
-    return Array.from({ length: endWeek - startWeek + 1 }, (_, i) => startWeek + i);
-  }, [rangeMode, week, sequence, term, startWeek, endWeek]);
-
   const lessonNumbers = useMemo(() => {
     const rows = progression ?? [];
-    if (rangeMode === "week") return rows.filter((e) => weekNumbers.includes(e.weekNumber)).map((e) => e.lessonNumber);
-    if (rangeMode === "sequence") return rows.filter((e) => e.sequence === sequence).map((e) => e.lessonNumber);
-    if (rangeMode === "term") return rows.filter((e) => e.term === term).map((e) => e.lessonNumber);
-    const [a, b] = [Math.min(startWeek, endWeek), Math.max(startWeek, endWeek)];
-    return rows.filter((e) => e.lessonNumber >= a && e.lessonNumber <= b).map((e) => e.lessonNumber);
-  }, [progression, rangeMode, weekNumbers, sequence, term, startWeek, endWeek]);
+    if (rangeMode === "all") return rows.map((e) => e.lessonNumber);
+    return rows.filter((e) => e.term === term).map((e) => e.lessonNumber);
+  }, [progression, rangeMode, term]);
 
   const inRange = useMemo(() => {
     const set = new Set(lessonNumbers);
@@ -143,70 +122,23 @@ export function ExportPage() {
           <div>
             <Label>Range</Label>
             <div className="flex flex-wrap gap-2">
-              {([
-                ["week", "Week"],
-                ["sequence", "Sequence"],
-                ["term", "Term"],
-                ["custom", "Custom"]
-              ] as [RangeMode, string][]).map(([mode, label]) => (
+              {([["all", "All lessons"], ["term", "By term"]] as [RangeMode, string][]).map(([mode, label]) => (
                 <button
                   key={mode}
                   onClick={() => setRangeMode(mode)}
-                  className={cn(
-                    "min-h-[40px] rounded-lg border px-4 text-sm font-medium",
-                    rangeMode === mode
-                      ? "border-indigo-600 bg-indigo-600 text-white"
-                      : "border-slate-300 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                  )}
+                  className={cn("min-h-[40px] rounded-lg border px-4 text-sm font-medium", rangeMode === mode ? "border-indigo-600 bg-indigo-600 text-white" : "border-slate-300 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300")}
                 >
                   {label}
                 </button>
               ))}
             </div>
           </div>
-
-          {rangeMode === "week" && (
-            <div>
-              <Label>Week number</Label>
-              <Input
-                type="number"
-                min={1}
-                max={36}
-                value={week}
-                onChange={(e) => setWeek(Number(e.target.value))}
-              />
-            </div>
-          )}
-          {rangeMode === "sequence" && (
-            <div>
-              <Label>Sequence</Label>
-              <Select value={sequence} onChange={(e) => setSequence(Number(e.target.value))}>
-                {[1, 2, 3, 4, 5, 6].map((s) => (
-                  <option key={s} value={s}>Sequence {s}</option>
-                ))}
-              </Select>
-            </div>
-          )}
           {rangeMode === "term" && (
             <div>
               <Label>Term</Label>
               <Select value={term} onChange={(e) => setTerm(Number(e.target.value) as Term)}>
-                {[1, 2, 3].map((t) => (
-                  <option key={t} value={t}>{TERM_NAMES[t as Term]}</option>
-                ))}
+                {[1, 2, 3].map((t) => (<option key={t} value={t}>{TERM_NAMES[t as Term]}</option>))}
               </Select>
-            </div>
-          )}
-          {rangeMode === "custom" && (
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Start week</Label>
-                <Input type="number" min={1} max={36} value={startWeek} onChange={(e) => setStartWeek(Number(e.target.value))} />
-              </div>
-              <div>
-                <Label>End week</Label>
-                <Input type="number" min={1} max={36} value={endWeek} onChange={(e) => setEndWeek(Number(e.target.value))} />
-              </div>
             </div>
           )}
         </CardContent>

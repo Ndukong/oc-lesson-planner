@@ -44,17 +44,15 @@ export async function initializeDatabase(): Promise<void> {
 }
 
 /**
- * Regenerate the progression grid for every subject using a (possibly
- * edited) school calendar. Lesson plans that already exist are preserved
- * (they reference their week directly); only the week's progression row is
- * recreated so holiday/evaluation weeks stay aligned with the calendar.
+ * Regenerate progression entries from the harmonised sheets (term-based,
+ * no calendar weeks). No-op if the sheets haven't changed.
  */
 export async function rebuildProgressionForCalendar(
-  calendar: SchoolCalendar
+  _calendar: SchoolCalendar
 ): Promise<void> {
   const entries: ProgressionEntry[] = [];
   for (const seed of SUBJECT_SEEDS) {
-    entries.push(...buildProgression(seed, calendar));
+    entries.push(...buildProgression(seed, _calendar));
   }
   await db.transaction("rw", db.progressionEntries, async () => {
     await db.progressionEntries.clear();
