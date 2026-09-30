@@ -93,4 +93,16 @@ db.version(6)
     await tx.table("syllabusModules").clear();
     await tx.table("subjects").clear();
     await tx.table("schoolCalendars").clear();
+    await tx.table("lessonPlans").clear();
+  });
+// v7: fix ConstraintError from v6 when aiSettings/lessonPlans already existed —
+// re-clear stale stores so initializeDatabase can re-seed idempotently.
+db.version(7)
+  .stores(STORES)
+  .upgrade(async (tx) => {
+    await tx.table("progressionEntries").clear();
+    await tx.table("syllabusModules").clear();
+    await tx.table("subjects").clear();
+    await tx.table("schoolCalendars").clear();
+    await tx.table("lessonPlans").clear();
   });

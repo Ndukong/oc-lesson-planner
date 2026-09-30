@@ -9,8 +9,11 @@ import type {
 } from "@/types";
 
 export async function initializeDatabase(): Promise<void> {
+  // Re-seed if any piece is missing — the term-based schema (v6/v7) wipes the
+  // old stores, so a partial seed must be repaired, never left half-written.
   const subjectCount = await db.subjects.count();
-  if (subjectCount > 0) return;
+  const progCount = await db.progressionEntries.count();
+  if (subjectCount > 0 && progCount > 0) return;
 
   const defaultSettings: AISettings = {
     id: "default",
@@ -27,14 +30,17 @@ export async function initializeDatabase(): Promise<void> {
       db.schoolCalendars,
       db.aiSettings,
       async () => {
+        await db.subjects.clear();
+        await db.syllabusModules.clear();
+        await db.progressionEntries.clear();
         for (const seed of SUBJECT_SEEDS) {
           const built = buildSubjectSeed(seed);
-          await db.subjects.add(built.subject);
-          await db.syllabusModules.bulkAdd(built.modules);
-          await db.progressionEntries.bulkAdd(built.progression);
+          await db.subjects.put(built.subject);
+          await db.syllabusModules.bulkPut(built.modules);
+          await db.progressionEntries.bulkPut(built.progression);
         }
-        await db.schoolCalendars.add({ ...DEFAULT_CALENDAR });
-        await db.aiSettings.add(defaultSettings);
+        await db.schoolCalendars.put({ ...DEFAULT_CALENDAR });
+        await db.aiSettings.put(defaultSettings);
       }
     );
   } catch (err) {
