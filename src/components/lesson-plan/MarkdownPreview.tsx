@@ -3,6 +3,9 @@ import katex from "katex";
 import "katex/dist/katex.min.css";
 
 const INLINE_MATH_RE = /\$(?:\\\(|\$)?([^$\n]+?)(?:\\\)|\$)?\$/g;
+const DISPLAY_MATH_RE = /^\$\$\s*([\s\S]*?)\$\s*$/;
+const DISPLAY_MATH_BRACKET_RE = /^\\\[\s*([\s\S]*?)\\\]\s*$/;
+const PAREN_MATH_RE = /\\\(([^)\\]+)\\\)/g;
 
 function MathTex({ tex, display }: { tex: string; display: boolean }) {
   let html = "";
@@ -18,8 +21,6 @@ function MathTex({ tex, display }: { tex: string; display: boolean }) {
   return display ? <div className="my-2 overflow-x-auto">{el}</div> : <span className="mx-0.5">{el}</span>;
 }
 
-const PAREN_MATH_RE = /\\\(([^)\\]+)\\\)/g;
-
 function extractMathLike(chunk: string): string | null {
   if (chunk.startsWith("$") && chunk.endsWith("$") && chunk.length > 2) {
     const m = INLINE_MATH_RE.exec(chunk);
@@ -31,6 +32,16 @@ function extractMathLike(chunk: string): string | null {
     PAREN_MATH_RE.lastIndex = 0;
     return m ? m[1].trim() : null;
   }
+  return null;
+}
+
+function extractDisplayMath(line: string): string | null {
+  // Check for $$...$$ display math
+  let m = DISPLAY_MATH_RE.exec(line);
+  if (m) return m[1].trim();
+  // Check for \[...\] display math
+  m = DISPLAY_MATH_BRACKET_RE.exec(line);
+  if (m) return m[1].trim();
   return null;
 }
 
@@ -104,12 +115,11 @@ export function MarkdownPreview({ text }: { text: string }) {
       );
     } else if (trimmed === "") {
       flushList(`e-${i}`);
-    } else if (/^\$\$/.test(trimmed)) {
+    } else if (/^\$\$/.test(trimmed) || /^\\\[/.test(trimmed)) {
       flushList(`m-${i}`);
-      const m = INLINE_MATH_RE.exec(trimmed.slice(2));
-      INLINE_MATH_RE.lastIndex = 0;
-      if (m) {
-        elements.push(<MathTex key={i} tex={m[1].trim()} display />);
+      const tex = extractDisplayMath(trimmed);
+      if (tex) {
+        elements.push(<MathTex key={i} tex={tex} display />);
       } else {
         elements.push(<p key={i} className="my-1 text-sm leading-relaxed text-slate-700 dark:text-slate-300">{renderInline(trimmed, i)}</p>);
       }
