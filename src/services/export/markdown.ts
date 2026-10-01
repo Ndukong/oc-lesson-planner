@@ -479,6 +479,21 @@ const TEX_SYMBOLS: Record<string, string> = {
   "\\log": "log ", "\\ln": "ln ", "\\exp": "exp ", "\\max": "max ", "\\min": "min ",
   "\\lim": "lim ", "\\det": "det ", "\\mod": "mod ", "\\bmod": " mod ",
   "\\,": "", "\\ ": "", "\\!": "", "\\quad": "  ", "\\qquad": "    ",
+  // Formatting / sizing commands - suppress in text output
+  "\\displaystyle": "", "\\textstyle": "", "\\scriptstyle": "", "\\scriptscriptstyle": "",
+  "\\big": "", "\\Big": "", "\\bigg": "", "\\Bigg": "",
+  "\\bigl": "", "\\bigr": "", "\\Bigl": "", "\\Bigr": "", "\\biggl": "", "\\biggr": "",
+  "\\Biggl": "", "\\Biggr": "",
+  "\\left": "", "\\right": "", "\\middle": "",
+  "\\limits": "", "\\nolimits": "",
+  "\\subscript": "", "\\superscript": "",
+  "\\mathop": "", "\\mathbin": "", "\\mathrel": "", "\\mathord": "", "\\mathopen": "", "\\mathclose": "", "\\mathpunct": "", "\\mathinner": "",
+  "\\;": "", "\\:": "",
+  "\\phantom": "", "\\vphantom": "", "\\hphantom": "",
+  "\\smash": "", "\\rlap": "", "\\llap": "",
+  "\\overline": "", "\\underline": "", "\\overbrace": "", "\\underbrace": "",
+  "\\overrightarrow": "", "\\overleftarrow": "", "\\overleftrightarrow": "",
+  "\\sqrt": "√", "\\sqrt[": "√",
 };
 
 const FRAC_COMMANDS = /^\\(?:frac|dfrac|tfrac|cfrac)\b/;
