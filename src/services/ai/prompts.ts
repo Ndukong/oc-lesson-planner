@@ -146,7 +146,7 @@ ${isMathSubject ? `
 - Include 2-3 worked examples if the topic is mathematical.
 - Include a "Practice Exercises:" section with 3-5 problems for students to solve in class.
 - Include a "Homework:" section with 2-3 additional problems.`}
-- End with a "Summary:" section using "- " bullet points.
+- End with a "Summary:" section using "- " bullet points. Keep it concise (3-5 bullets). Use plain text or simple inline math ($...$) only — avoid LaTeX formatting commands (\displaystyle, \big, \limits, \subscript, \phantom, etc.).
 - English only.
 
 Respond with ONLY the markdown lesson notes. Do NOT wrap them in JSON and do NOT use code fences.`;
