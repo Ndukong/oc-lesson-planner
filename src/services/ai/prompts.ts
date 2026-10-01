@@ -128,16 +128,24 @@ export function buildNotesSystemPrompt(): string {
  */
 export function buildLessonNotesPrompt(context: GenerationContext): string {
   const contextLines = buildContextLines(context);
+  const isMathSubject = ["Mathematics", "Physics", "Chemistry", "Further Mathematics", "Computer Science"].includes(context.subject);
   return `${contextLines.join("\n")}
 
 Write the full lesson notes that learners will copy into their exercise books for this lesson.
 
 Requirements:
-- 300-800 words.
+- 500-1200 words (more detail for mathematical subjects).
 - Clear headings with "## " prefix for each section.
 - Definitions in complete sentences.
 - Include key formulas, and describe any diagrams in text like "[Draw a circuit with a battery, switch and bulb in series]".
+${isMathSubject ? `
+- Include 5-7 WORKED EXAMPLES with step-by-step solutions (label each "Example 1:", "Example 2:", etc.).
+- Include a "Practice Exercises:" section with 5-8 problems for students to solve in class (label "Exercise 1:", "Exercise 2:", etc.).
+- Include a "Homework:" section with 3-5 additional problems for students to complete at home.
+- For each worked example, show the GIVEN, FIND, FORMULA, SOLUTION, and ANSWER clearly.` : `
 - Include 2-3 worked examples if the topic is mathematical.
+- Include a "Practice Exercises:" section with 3-5 problems for students to solve in class.
+- Include a "Homework:" section with 2-3 additional problems.`}
 - End with a "Summary:" section using "- " bullet points.
 - English only.
 
